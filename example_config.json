@@ -1,0 +1,9 @@
+{
+  "api_key": "your_btcpay_api_key_here",
+  "store_id": "your_store_id_here",
+  "base_url": "https://your-btcpay-server.com",
+  "count": 1000,
+  "batch_size": 50,
+  "delay": 0.1,
+  "output_dir": "invoice_results"
+}
