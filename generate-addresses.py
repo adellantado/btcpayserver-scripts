@@ -2,15 +2,18 @@
 """
 Bitcoin Address Generator and Funder
 
-This script generates 1000 Bitcoin addresses and funds them from wallet 0.
-Supports both mainnet and testnet operations.
+This script generates Bitcoin addresses and funds them from wallet 0.
+Supports both mainnet and testnet operations, and can import wallets from private keys or mnemonics.
 
 Requirements:
 - bitcoinlib
 - python-bitcoinrpc (optional, for RPC operations)
 
 Usage:
-    python generate-addresses.py [--testnet] [--amount AMOUNT] [--rpc-url URL]
+    python generate-addresses.py [--mainnet] [--amount AMOUNT] [--count COUNT]
+    python generate-addresses.py --private-key YOUR_PRIVATE_KEY [--mainnet]
+    python generate-addresses.py --mnemonic "your twelve word mnemonic phrase" [--mainnet]
+    python generate-addresses.py --key-file path/to/keyfile [--mainnet]
 """
 
 import os
@@ -60,28 +63,75 @@ class BTCAddressGenerator:
         
         logger.info(f"Initialized BTCAddressGenerator for {self.network}")
     
-    def create_or_load_funding_wallet(self, wallet_name='wallet_0') -> Wallet:
+    def create_or_load_funding_wallet(self, wallet_name='wallet_0', private_key=None, mnemonic=None) -> Wallet:
         """
         Create or load the funding wallet (wallet 0).
         
         Args:
             wallet_name (str): Name of the funding wallet
+            private_key (str, optional): Private key in hex format to import wallet
+            mnemonic (str, optional): Mnemonic phrase to import wallet
             
         Returns:
             Wallet: The funding wallet object
         """
         try:
-            # Try to load existing wallet
-            self.funding_wallet = Wallet(wallet_name, network=self.network)
-            logger.info(f"Loaded existing wallet: {wallet_name}")
-        except Exception:
-            # Create new wallet if it doesn't exist
-            self.funding_wallet = Wallet.create(
-                wallet_name,
-                network=self.network,
-                witness_type='segwit'
-            )
-            logger.info(f"Created new wallet: {wallet_name}")
+            # If private key or mnemonic provided, import the wallet
+            if private_key or mnemonic:
+                if private_key:
+                    logger.info(f"Importing wallet from private key...")
+                    # Delete existing wallet if it exists
+                    try:
+                        existing_wallet = Wallet(wallet_name, network=self.network)
+                        existing_wallet.delete()
+                        logger.info(f"Deleted existing wallet: {wallet_name}")
+                    except:
+                        pass
+                    
+                    # Create wallet from private key
+                    self.funding_wallet = Wallet.create(
+                        wallet_name,
+                        keys=private_key,
+                        network=self.network,
+                        witness_type='segwit'
+                    )
+                    logger.info(f"Imported wallet from private key: {wallet_name}")
+                    
+                elif mnemonic:
+                    logger.info(f"Importing wallet from mnemonic...")
+                    # Delete existing wallet if it exists
+                    try:
+                        existing_wallet = Wallet(wallet_name, network=self.network)
+                        existing_wallet.delete()
+                        logger.info(f"Deleted existing wallet: {wallet_name}")
+                    except:
+                        pass
+                    
+                    # Create wallet from mnemonic
+                    self.funding_wallet = Wallet.create(
+                        wallet_name,
+                        keys=mnemonic,
+                        network=self.network,
+                        witness_type='segwit'
+                    )
+                    logger.info(f"Imported wallet from mnemonic: {wallet_name}")
+            else:
+                # Try to load existing wallet
+                self.funding_wallet = Wallet(wallet_name, network=self.network)
+                logger.info(f"Loaded existing wallet: {wallet_name}")
+                
+        except Exception as e:
+            if private_key or mnemonic:
+                logger.error(f"Failed to import wallet: {str(e)}")
+                raise
+            else:
+                # Create new wallet if it doesn't exist
+                self.funding_wallet = Wallet.create(
+                    wallet_name,
+                    network=self.network,
+                    witness_type='segwit'
+                )
+                logger.info(f"Created new wallet: {wallet_name}")
         
         # Get wallet info
         balance = self.funding_wallet.balance()
@@ -230,6 +280,37 @@ class BTCAddressGenerator:
         
         logger.info(f"Funding complete. Successfully funded {funded_count}/{len(self.generated_addresses)} addresses")
     
+    def get_wallet_info(self) -> Dict:
+        """
+        Get information about the funding wallet.
+        
+        Returns:
+            Dict: Wallet information including keys and addresses
+        """
+        if not self.funding_wallet:
+            return {}
+        
+        try:
+            # Get the main key from the wallet
+            main_key = self.funding_wallet.main_key
+            
+            info = {
+                'wallet_name': self.funding_wallet.name,
+                'network': self.network,
+                'balance': self.get_wallet_balance(),
+                'main_address': self.funding_wallet.get_key().address,
+                'private_key': main_key.private_hex if main_key else None,
+                'public_key': main_key.public_hex if main_key else None,
+                'wif': main_key.wif() if main_key else None,
+                'mnemonic': self.funding_wallet.mnemonic() if hasattr(self.funding_wallet, 'mnemonic') else None
+            }
+            
+            return info
+            
+        except Exception as e:
+            logger.error(f"Error getting wallet info: {str(e)}")
+            return {}
+    
     def create_funding_summary(self) -> Dict:
         """
         Create a summary of the funding operation.
@@ -240,7 +321,7 @@ class BTCAddressGenerator:
         summary = {
             'network': self.network,
             'total_addresses': len(self.generated_addresses),
-            'wallet_balance': self.get_wallet_balance(),
+            'wallet_info': self.get_wallet_info(),
             'timestamp': time.time(),
             'addresses': self.generated_addresses
         }
@@ -256,8 +337,40 @@ def main():
     parser.add_argument('--count', type=int, default=1000, help='Number of addresses to generate (default: 1000)')
     parser.add_argument('--no-funding', action='store_true', help='Generate addresses only, skip funding')
     parser.add_argument('--output', type=str, default='generated_addresses.json', help='Output file for addresses')
+    parser.add_argument('--private-key', type=str, help='Import funding wallet from private key (hex format)')
+    parser.add_argument('--mnemonic', type=str, help='Import funding wallet from mnemonic phrase')
+    parser.add_argument('--key-file', type=str, help='Import funding wallet from file containing private key or mnemonic')
     
     args = parser.parse_args()
+    
+    # Handle key import options
+    private_key = None
+    mnemonic = None
+    
+    if args.key_file:
+        try:
+            with open(args.key_file, 'r') as f:
+                key_content = f.read().strip()
+                # Try to determine if it's a mnemonic (multiple words) or private key
+                if len(key_content.split()) > 1:
+                    mnemonic = key_content
+                    logger.info("Loaded mnemonic from file")
+                else:
+                    private_key = key_content
+                    logger.info("Loaded private key from file")
+        except Exception as e:
+            print(f"Error reading key file: {str(e)}")
+            return
+    elif args.private_key:
+        private_key = args.private_key
+    elif args.mnemonic:
+        mnemonic = args.mnemonic
+    
+    # Validate that only one key import method is used
+    key_methods = sum([bool(args.private_key), bool(args.mnemonic), bool(args.key_file)])
+    if key_methods > 1:
+        print("Error: Please specify only one key import method (--private-key, --mnemonic, or --key-file)")
+        return
     
     # Warning for mainnet usage
     if args.mainnet:
@@ -274,7 +387,10 @@ def main():
         
         # Create or load funding wallet
         if not args.no_funding:
-            generator.create_or_load_funding_wallet()
+            generator.create_or_load_funding_wallet(
+                private_key=private_key,
+                mnemonic=mnemonic
+            )
         
         # Generate addresses
         addresses = generator.generate_addresses(args.count)
@@ -305,6 +421,17 @@ def main():
         if not args.no_funding:
             print(f"Funding amount per address: {args.amount} BTC")
             print(f"Wallet balance: {generator.get_wallet_balance()} satoshis")
+            
+            # Show wallet info if keys were imported
+            if private_key or mnemonic:
+                wallet_info = generator.get_wallet_info()
+                print(f"\n🔑 Imported Wallet Info:")
+                print(f"Wallet name: {wallet_info.get('wallet_name', 'N/A')}")
+                print(f"Main address: {wallet_info.get('main_address', 'N/A')}")
+                if private_key:
+                    print("✅ Imported from private key")
+                elif mnemonic:
+                    print("✅ Imported from mnemonic")
         
     except KeyboardInterrupt:
         logger.info("Operation cancelled by user")
