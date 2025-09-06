@@ -1,0 +1,14 @@
+# Bitcoin Address Generator Requirements
+
+# Core Bitcoin library for wallet operations, key generation, and transactions
+bitcoinlib>=0.6.0
+
+# BTCPay Server Invoice Generator Requirements
+aiohttp>=3.8.0          # Async HTTP client for concurrent API calls
+requests>=2.28.0        # HTTP library for API calls and connection testing
+tqdm>=4.64.0           # Progress bars for batch operations
+
+# Additional utilities (optional but recommended)
+# python-bitcoinrpc>=1.0  # Uncomment if you need direct RPC access
+# cryptography>=3.4.0     # Enhanced cryptographic operations
+
