@@ -14,6 +14,8 @@ Usage:
     python generate-addresses.py --private-key YOUR_PRIVATE_KEY [--mainnet]
     python generate-addresses.py --mnemonic "your twelve word mnemonic phrase" [--mainnet]
     python generate-addresses.py --key-file path/to/keyfile [--mainnet]
+    python generate-addresses.py --config example_btc_config.json
+    python generate-addresses.py --config config.json --count 2000  # Override config values
 """
 
 import os
@@ -218,13 +220,14 @@ class BTCAddressGenerator:
             logger.error(f"Error getting wallet balance: {str(e)}")
             return 0
     
-    def fund_addresses(self, amount_per_address: float = 0.001, max_fee: float = 0.0001):
+    def fund_addresses(self, amount_per_address: float = 0.001, max_fee: float = 0.0001, batch_size: int = 50):
         """
         Fund generated addresses from wallet 0.
         
         Args:
             amount_per_address (float): Amount in BTC to send to each address
             max_fee (float): Maximum fee in BTC per transaction
+            batch_size (int): Number of addresses to fund per transaction
         """
         if not self.funding_wallet:
             logger.error("Funding wallet not initialized")
@@ -250,7 +253,6 @@ class BTCAddressGenerator:
             return
         
         # Fund addresses in batches to avoid creating huge transactions
-        batch_size = 50  # Adjust based on network limits
         funded_count = 0
         
         for i in range(0, len(self.generated_addresses), batch_size):
@@ -329,9 +331,152 @@ class BTCAddressGenerator:
         return summary
 
 
+def load_config(config_file: str) -> Dict:
+    """
+    Load configuration from JSON file.
+    
+    Args:
+        config_file (str): Path to configuration file
+        
+    Returns:
+        Dict: Configuration dictionary
+    """
+    try:
+        with open(config_file, 'r') as f:
+            config = json.load(f)
+        logger.info(f"Loaded configuration from {config_file}")
+        return config
+    except FileNotFoundError:
+        logger.error(f"Configuration file not found: {config_file}")
+        raise
+    except json.JSONDecodeError as e:
+        logger.error(f"Invalid JSON in configuration file: {str(e)}")
+        raise
+    except Exception as e:
+        logger.error(f"Error loading configuration: {str(e)}")
+        raise
+
+
+def validate_config(config: Dict) -> bool:
+    """
+    Validate configuration file values.
+    
+    Args:
+        config (Dict): Configuration dictionary
+        
+    Returns:
+        bool: True if valid, False otherwise
+    """
+    # Validate count
+    if 'count' in config and (not isinstance(config['count'], int) or config['count'] <= 0):
+        logger.error("Config error: 'count' must be a positive integer")
+        return False
+    
+    # Validate amount
+    if 'amount' in config and (not isinstance(config['amount'], (int, float)) or config['amount'] <= 0):
+        logger.error("Config error: 'amount' must be a positive number")
+        return False
+    
+    # Validate max_fee
+    if 'max_fee' in config and (not isinstance(config['max_fee'], (int, float)) or config['max_fee'] <= 0):
+        logger.error("Config error: 'max_fee' must be a positive number")
+        return False
+    
+    # Validate batch_size
+    if 'batch_size' in config and (not isinstance(config['batch_size'], int) or config['batch_size'] <= 0):
+        logger.error("Config error: 'batch_size' must be a positive integer")
+        return False
+    
+    # Validate mainnet
+    if 'mainnet' in config and not isinstance(config['mainnet'], bool):
+        logger.error("Config error: 'mainnet' must be a boolean")
+        return False
+    
+    # Validate no_funding
+    if 'no_funding' in config and not isinstance(config['no_funding'], bool):
+        logger.error("Config error: 'no_funding' must be a boolean")
+        return False
+    
+    # Validate string fields
+    string_fields = ['output', 'wallet_name', 'private_key', 'mnemonic', 'key_file']
+    for field in string_fields:
+        if field in config and not isinstance(config[field], str):
+            logger.error(f"Config error: '{field}' must be a string")
+            return False
+    
+    return True
+
+
+def merge_config_with_args(config: Dict, args: argparse.Namespace) -> argparse.Namespace:
+    """
+    Merge configuration file values with command line arguments.
+    Command line arguments take precedence over config file values.
+    
+    Args:
+        config (Dict): Configuration dictionary
+        args (argparse.Namespace): Command line arguments
+        
+    Returns:
+        argparse.Namespace: Merged arguments
+    """
+    # Only use config values if command line argument wasn't provided
+    if not args.mainnet and config.get('mainnet', False):
+        args.mainnet = config['mainnet']
+    
+    if args.amount == 0.001 and 'amount' in config:  # Default value check
+        args.amount = config['amount']
+    
+    if args.count == 1000 and 'count' in config:  # Default value check
+        args.count = config['count']
+    
+    if not args.no_funding and config.get('no_funding', False):
+        args.no_funding = config['no_funding']
+    
+    if args.output == 'generated_addresses.json' and 'output' in config:  # Default value check
+        args.output = config['output']
+    
+    if not args.private_key and 'private_key' in config:
+        args.private_key = config['private_key']
+    
+    if not args.mnemonic and 'mnemonic' in config:
+        args.mnemonic = config['mnemonic']
+    
+    if not args.key_file and 'key_file' in config:
+        args.key_file = config['key_file']
+    
+    # Additional config-only parameters
+    if 'wallet_name' in config:
+        args.wallet_name = config['wallet_name']
+    else:
+        args.wallet_name = 'wallet_0'
+    
+    if 'max_fee' in config:
+        args.max_fee = config['max_fee']
+    else:
+        args.max_fee = 0.0001
+    
+    if 'batch_size' in config:
+        args.batch_size = config['batch_size']
+    else:
+        args.batch_size = 50
+    
+    return args
+
+
 def main():
     """Main function to run the address generation and funding process."""
-    parser = argparse.ArgumentParser(description='Generate and fund Bitcoin addresses')
+    parser = argparse.ArgumentParser(
+        description='Generate and fund Bitcoin addresses',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  %(prog)s --mainnet --count 500 --amount 0.002
+  %(prog)s --private-key abc123... --count 100
+  %(prog)s --config config.json
+  %(prog)s --config config.json --count 2000  # Override config with CLI args
+        """
+    )
+    parser.add_argument('--config', type=str, help='Configuration file path (JSON format)')
     parser.add_argument('--mainnet', action='store_true', help='Use mainnet instead of testnet')
     parser.add_argument('--amount', type=float, default=0.001, help='Amount in BTC to send to each address (default: 0.001)')
     parser.add_argument('--count', type=int, default=1000, help='Number of addresses to generate (default: 1000)')
@@ -340,8 +485,24 @@ def main():
     parser.add_argument('--private-key', type=str, help='Import funding wallet from private key (hex format)')
     parser.add_argument('--mnemonic', type=str, help='Import funding wallet from mnemonic phrase')
     parser.add_argument('--key-file', type=str, help='Import funding wallet from file containing private key or mnemonic')
+    parser.add_argument('--wallet-name', type=str, default='wallet_0', help='Name of the funding wallet (default: wallet_0)')
+    parser.add_argument('--max-fee', type=float, default=0.0001, help='Maximum fee in BTC per transaction (default: 0.0001)')
+    parser.add_argument('--batch-size', type=int, default=50, help='Number of addresses to fund per transaction (default: 50)')
     
     args = parser.parse_args()
+    
+    # Load configuration file if provided
+    if args.config:
+        try:
+            config = load_config(args.config)
+            if not validate_config(config):
+                print(f"❌ Configuration validation failed")
+                return 1
+            args = merge_config_with_args(config, args)
+            print(f"✅ Loaded configuration from: {args.config}")
+        except Exception as e:
+            print(f"❌ Error loading configuration: {str(e)}")
+            return 1
     
     # Handle key import options
     private_key = None
@@ -388,6 +549,7 @@ def main():
         # Create or load funding wallet
         if not args.no_funding:
             generator.create_or_load_funding_wallet(
+                wallet_name=args.wallet_name,
                 private_key=private_key,
                 mnemonic=mnemonic
             )
@@ -400,7 +562,11 @@ def main():
         
         # Fund addresses if requested
         if not args.no_funding and addresses:
-            generator.fund_addresses(amount_per_address=args.amount)
+            generator.fund_addresses(
+                amount_per_address=args.amount,
+                max_fee=args.max_fee,
+                batch_size=args.batch_size
+            )
         
         # Create and save summary
         summary = generator.create_funding_summary()
@@ -418,8 +584,15 @@ def main():
         print(f"Output file: {args.output}")
         print(f"Summary file: {summary_file}")
         
+        # Show configuration details
+        if args.config:
+            print(f"Configuration file: {args.config}")
+        
         if not args.no_funding:
             print(f"Funding amount per address: {args.amount} BTC")
+            print(f"Maximum fee per transaction: {args.max_fee} BTC")
+            print(f"Batch size: {args.batch_size} addresses per transaction")
+            print(f"Wallet name: {args.wallet_name}")
             print(f"Wallet balance: {generator.get_wallet_balance()} satoshis")
             
             # Show wallet info if keys were imported
