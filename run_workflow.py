@@ -3,7 +3,7 @@
 BTCPay Scripts Workflow Runner
 
 This script runs the complete Bitcoin payment testing workflow using the universal config.
-It executes all three scripts in sequence: generate-addresses.py, generate_invoices.py, and pay_invoices.py.
+It executes all three scripts in sequence: generate_addresses.py, generate_invoices.py, and pay_invoices.py.
 
 Usage:
     python run_workflow.py --config universal_config.json
@@ -155,7 +155,7 @@ Examples:
     if args.dry_run:
         logger.info("DRY RUN - Would execute the following steps:")
         if not args.skip_addresses:
-            logger.info("1. python generate-addresses.py --config " + args.config)
+            logger.info("1. python generate_addresses.py --config " + args.config)
         if not args.skip_invoices:
             logger.info("2. python generate_invoices.py --config " + args.config)
         if not args.skip_payments:
@@ -172,7 +172,7 @@ Examples:
         logger.info("="*60)
         logger.info("STEP 1: Generating Bitcoin addresses")
         logger.info("="*60)
-        if run_script('generate-addresses.py', args.config):
+        if run_script('generate_addresses.py', args.config):
             success_count += 1
         else:
             logger.error("Address generation failed. Stopping workflow.")

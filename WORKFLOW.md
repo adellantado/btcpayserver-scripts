@@ -4,7 +4,7 @@ This document explains how the three scripts work together to create a complete 
 
 ## Scripts Overview
 
-1. **`generate-addresses.py`** - Generates Bitcoin addresses and funds them
+1. **`generate_addresses.py`** - Generates Bitcoin addresses and funds them
 2. **`generate_invoices.py`** - Creates BTCPay Server invoices
 3. **`pay_invoices.py`** - Pays invoices using the generated addresses
 
@@ -19,7 +19,7 @@ The easiest way to run the complete workflow is using the universal configuratio
 python run_workflow.py --config universal_config.json
 
 # Or run individual steps with the same config
-python generate-addresses.py --config universal_config.json
+python generate_addresses.py --config universal_config.json
 python generate_invoices.py --config universal_config.json
 python pay_invoices.py --config universal_config.json
 ```
@@ -34,10 +34,10 @@ Generate Bitcoin addresses and fund them with test Bitcoin:
 
 ```bash
 # Using config file (recommended)
-python generate-addresses.py --config example_btc_config.json
+python generate_addresses.py --config example_btc_config.json
 
 # Or with command line arguments
-python generate-addresses.py --mainnet false --count 1000 --amount 0.001
+python generate_addresses.py --mainnet false --count 1000 --amount 0.001
 ```
 
 **Output**: `generated_addresses.json` - Contains Bitcoin addresses with private keys
@@ -90,7 +90,7 @@ python pay_invoices.py --addresses generated_addresses.json --invoices "invoice_
 ## File Dependencies
 
 ```
-generate-addresses.py → generated_addresses.json
+generate_addresses.py → generated_addresses.json
 generate_invoices.py → invoice_results/successful_invoices_*.json
 pay_invoices.py ← generated_addresses.json + invoice_results/successful_invoices_*.json
 ```
@@ -115,7 +115,7 @@ All scripts default to **testnet** for safety. To use mainnet:
 
 ```bash
 # 1. Generate and fund addresses
-python generate-addresses.py --config example_btc_config.json
+python generate_addresses.py --config example_btc_config.json
 
 # 2. Generate invoices
 python generate_invoices.py --config example_invoice_config.json

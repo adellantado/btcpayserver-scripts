@@ -1,6 +1,6 @@
 {
   "_comment": "Universal Configuration for BTCPay Scripts Workflow",
-  "_note": "This single config file works with all three scripts: generate-addresses.py, generate_invoices.py, and pay_invoices.py",
+  "_note": "This single config file works with all three scripts: generate_addresses.py, generate_invoices.py, and pay_invoices.py",
   
   "_network_settings": {
     "mainnet": false,
@@ -15,7 +15,7 @@
     "wallet_name": "wallet_0",
     "max_fee": 0.0001,
     "batch_size": 50,
-    "_description": "Settings for generate-addresses.py script"
+    "_description": "Settings for generate_addresses.py script"
   },
   
   "_invoice_generation": {
@@ -67,7 +67,7 @@
   
   "_usage_examples": [
     "# Generate addresses",
-    "python generate-addresses.py --config universal_config.json",
+    "python generate_addresses.py --config universal_config.json",
     "",
     "# Generate invoices", 
     "python generate_invoices.py --config universal_config.json",
@@ -76,7 +76,7 @@
     "python pay_invoices.py --config universal_config.json",
     "",
     "# Complete workflow",
-    "python generate-addresses.py --config universal_config.json && python generate_invoices.py --config universal_config.json && python pay_invoices.py --config universal_config.json"
+    "python generate_addresses.py --config universal_config.json && python generate_invoices.py --config universal_config.json && python pay_invoices.py --config universal_config.json"
   ],
   
   "_workflow_note": "This config enables a complete Bitcoin payment testing workflow with consistent settings across all scripts"

@@ -10,12 +10,12 @@ Requirements:
 - python-bitcoinrpc (optional, for RPC operations)
 
 Usage:
-    python generate-addresses.py [--mainnet] [--amount AMOUNT] [--count COUNT]
-    python generate-addresses.py --private-key YOUR_PRIVATE_KEY [--mainnet]
-    python generate-addresses.py --mnemonic "your twelve word mnemonic phrase" [--mainnet]
-    python generate-addresses.py --key-file path/to/keyfile [--mainnet]
-    python generate-addresses.py --config example_btc_config.json
-    python generate-addresses.py --config config.json --count 2000  # Override config values
+    python generate_addresses.py [--mainnet] [--amount AMOUNT] [--count COUNT]
+    python generate_addresses.py --private-key YOUR_PRIVATE_KEY [--mainnet]
+    python generate_addresses.py --mnemonic "your twelve word mnemonic phrase" [--mainnet]
+    python generate_addresses.py --key-file path/to/keyfile [--mainnet]
+    python generate_addresses.py --config example_btc_config.json
+    python generate_addresses.py --config config.json --count 2000  # Override config values
 """
 
 import os

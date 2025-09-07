@@ -4,7 +4,7 @@ A collection of Python scripts for Bitcoin operations including address generati
 
 ## Scripts Included
 
-### 1. Bitcoin Address Generator (`generate-addresses.py`)
+### 1. Bitcoin Address Generator (`generate_addresses.py`)
 - ✅ Generate 1000 unique Bitcoin addresses with private keys
 - ✅ Support for both mainnet and testnet
 - ✅ Automatic funding from a source wallet
@@ -26,7 +26,7 @@ A collection of Python scripts for Bitcoin operations including address generati
 ### 3. BTCPay Invoice Payment Processor (`pay_invoices.py`)
 - ✅ Pay BTCPay Server invoices using generated Bitcoin addresses
 - ✅ Automatic Bitcoin transaction creation and broadcasting
-- ✅ Load addresses from `generate-addresses.py` output
+- ✅ Load addresses from `generate_addresses.py` output
 - ✅ Load invoices from `generate_invoices.py` output  
 - ✅ Support for both mainnet and testnet operations
 - ✅ Progress tracking and comprehensive logging
@@ -45,7 +45,7 @@ Use a single configuration file for all scripts:
 python run_workflow.py --config universal_config.json
 
 # Or run individual steps with the same config
-python generate-addresses.py --config universal_config.json
+python generate_addresses.py --config universal_config.json
 python generate_invoices.py --config universal_config.json
 python pay_invoices.py --config universal_config.json
 ```
@@ -55,7 +55,7 @@ Use separate configuration files for each script:
 
 ```bash
 # 1. Generate and fund Bitcoin addresses
-python generate-addresses.py --config example_btc_config.json
+python generate_addresses.py --config example_btc_config.json
 
 # 2. Generate BTCPay Server invoices
 python generate_invoices.py --config example_invoice_config.json
@@ -81,24 +81,24 @@ pip install -r requirements.txt
 
 #### Basic Usage (Testnet - Recommended for testing)
 ```bash
-python generate-addresses.py --testnet
+python generate_addresses.py --testnet
 ```
 
 #### Mainnet Usage (⚠️ Uses real Bitcoin)
 ```bash
-python generate-addresses.py
+python generate_addresses.py
 ```
 
 #### Custom Options
 ```bash
 # Generate 500 addresses with 0.002 BTC each
-python generate-addresses.py --count 500 --amount 0.002 --testnet
+python generate_addresses.py --count 500 --amount 0.002 --testnet
 
 # Generate addresses only (no funding)
-python generate-addresses.py --no-funding --count 1000
+python generate_addresses.py --no-funding --count 1000
 
 # Custom output file
-python generate-addresses.py --output my_addresses.json --testnet
+python generate_addresses.py --output my_addresses.json --testnet
 ```
 
 #### Command Line Options
@@ -226,7 +226,7 @@ Here's how to use all three scripts together for a complete invoice payment work
 ### Step 1: Generate Bitcoin Addresses
 ```bash
 # Generate 100 addresses on testnet
-python generate-addresses.py --count 100 --testnet --output my_addresses.json
+python generate_addresses.py --count 100 --testnet --output my_addresses.json
 ```
 
 ### Step 2: Generate BTCPay Invoices  
@@ -252,7 +252,7 @@ python pay_invoices.py \
 ### Using Configuration Files
 ```bash
 # 1. Generate addresses with config
-python generate-addresses.py --config btc_config.json
+python generate_addresses.py --config btc_config.json
 
 # 2. Generate invoices with config  
 python generate_invoices.py --config invoice_config.json
