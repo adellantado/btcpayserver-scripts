@@ -411,6 +411,7 @@ def merge_config_with_args(config: Dict, args: argparse.Namespace) -> argparse.N
     """
     Merge configuration file values with command line arguments.
     Command line arguments take precedence over config file values.
+    Supports both legacy config format and universal config format.
     
     Args:
         config (Dict): Configuration dictionary
@@ -419,46 +420,97 @@ def merge_config_with_args(config: Dict, args: argparse.Namespace) -> argparse.N
     Returns:
         argparse.Namespace: Merged arguments
     """
-    # Only use config values if command line argument wasn't provided
-    if not args.mainnet and config.get('mainnet', False):
-        args.mainnet = config['mainnet']
+    # Handle universal config format
+    if '_address_generation' in config:
+        # Universal config format
+        addr_config = config['_address_generation']
+        network_config = config.get('_network_settings', {})
+        key_config = config.get('_key_import_options', {})
+        
+        # Network settings
+        if not args.mainnet and network_config.get('mainnet', False):
+            args.mainnet = network_config['mainnet']
+        
+        # Address generation settings
+        if args.amount == 0.001 and 'amount' in addr_config:
+            args.amount = addr_config['amount']
+        
+        if args.count == 1000 and 'count' in addr_config:
+            args.count = addr_config['count']
+        
+        if not args.no_funding and addr_config.get('no_funding', False):
+            args.no_funding = addr_config['no_funding']
+        
+        if args.output == 'generated_addresses.json' and 'output' in addr_config:
+            args.output = addr_config['output']
+        
+        # Key import options
+        if not args.private_key and 'private_key' in key_config and key_config['private_key']:
+            args.private_key = key_config['private_key']
+        
+        if not args.mnemonic and 'mnemonic' in key_config and key_config['mnemonic']:
+            args.mnemonic = key_config['mnemonic']
+        
+        if not args.key_file and 'key_file' in key_config and key_config['key_file']:
+            args.key_file = key_config['key_file']
+        
+        # Additional parameters
+        if 'wallet_name' in addr_config:
+            args.wallet_name = addr_config['wallet_name']
+        else:
+            args.wallet_name = 'wallet_0'
+        
+        if 'max_fee' in addr_config:
+            args.max_fee = addr_config['max_fee']
+        else:
+            args.max_fee = 0.0001
+        
+        if 'batch_size' in addr_config:
+            args.batch_size = addr_config['batch_size']
+        else:
+            args.batch_size = 50
     
-    if args.amount == 0.001 and 'amount' in config:  # Default value check
-        args.amount = config['amount']
-    
-    if args.count == 1000 and 'count' in config:  # Default value check
-        args.count = config['count']
-    
-    if not args.no_funding and config.get('no_funding', False):
-        args.no_funding = config['no_funding']
-    
-    if args.output == 'generated_addresses.json' and 'output' in config:  # Default value check
-        args.output = config['output']
-    
-    if not args.private_key and 'private_key' in config:
-        args.private_key = config['private_key']
-    
-    if not args.mnemonic and 'mnemonic' in config:
-        args.mnemonic = config['mnemonic']
-    
-    if not args.key_file and 'key_file' in config:
-        args.key_file = config['key_file']
-    
-    # Additional config-only parameters
-    if 'wallet_name' in config:
-        args.wallet_name = config['wallet_name']
     else:
-        args.wallet_name = 'wallet_0'
-    
-    if 'max_fee' in config:
-        args.max_fee = config['max_fee']
-    else:
-        args.max_fee = 0.0001
-    
-    if 'batch_size' in config:
-        args.batch_size = config['batch_size']
-    else:
-        args.batch_size = 50
+        # Legacy config format
+        if not args.mainnet and config.get('mainnet', False):
+            args.mainnet = config['mainnet']
+        
+        if args.amount == 0.001 and 'amount' in config:
+            args.amount = config['amount']
+        
+        if args.count == 1000 and 'count' in config:
+            args.count = config['count']
+        
+        if not args.no_funding and config.get('no_funding', False):
+            args.no_funding = config['no_funding']
+        
+        if args.output == 'generated_addresses.json' and 'output' in config:
+            args.output = config['output']
+        
+        if not args.private_key and 'private_key' in config:
+            args.private_key = config['private_key']
+        
+        if not args.mnemonic and 'mnemonic' in config:
+            args.mnemonic = config['mnemonic']
+        
+        if not args.key_file and 'key_file' in config:
+            args.key_file = config['key_file']
+        
+        # Additional config-only parameters
+        if 'wallet_name' in config:
+            args.wallet_name = config['wallet_name']
+        else:
+            args.wallet_name = 'wallet_0'
+        
+        if 'max_fee' in config:
+            args.max_fee = config['max_fee']
+        else:
+            args.max_fee = 0.0001
+        
+        if 'batch_size' in config:
+            args.batch_size = config['batch_size']
+        else:
+            args.batch_size = 50
     
     return args
 

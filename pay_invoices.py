@@ -583,6 +583,7 @@ def merge_config_with_args(config: Dict, args: argparse.Namespace) -> argparse.N
     """
     Merge configuration file values with command line arguments.
     Command line arguments take precedence over config file values.
+    Supports both legacy config format and universal config format.
     
     Args:
         config (Dict): Configuration dictionary
@@ -591,23 +592,49 @@ def merge_config_with_args(config: Dict, args: argparse.Namespace) -> argparse.N
     Returns:
         argparse.Namespace: Merged arguments
     """
-    if not args.addresses and 'addresses_file' in config:
-        args.addresses = config['addresses_file']
+    # Handle universal config format
+    if '_payment_processing' in config:
+        # Universal config format
+        payment_config = config['_payment_processing']
+        network_config = config.get('_network_settings', {})
+        
+        if not args.addresses and 'addresses_file' in payment_config:
+            args.addresses = payment_config['addresses_file']
+        
+        if not args.invoices and 'invoices_file' in payment_config:
+            args.invoices = payment_config['invoices_file']
+        
+        if not args.mainnet and network_config.get('mainnet', False):
+            args.mainnet = network_config['mainnet']
+        
+        if args.delay == 1.0 and 'delay' in payment_config:  # Default value check
+            args.delay = payment_config['delay']
+        
+        if not args.max_invoices and 'max_invoices' in payment_config:
+            args.max_invoices = payment_config['max_invoices']
+        
+        if args.output_dir == 'payment_results' and 'output_dir' in payment_config:  # Default value check
+            args.output_dir = payment_config['output_dir']
     
-    if not args.invoices and 'invoices_file' in config:
-        args.invoices = config['invoices_file']
-    
-    if not args.mainnet and config.get('mainnet', False):
-        args.mainnet = config['mainnet']
-    
-    if args.delay == 1.0 and 'delay' in config:  # Default value check
-        args.delay = config['delay']
-    
-    if not args.max_invoices and 'max_invoices' in config:
-        args.max_invoices = config['max_invoices']
-    
-    if args.output_dir == 'payment_results' and 'output_dir' in config:  # Default value check
-        args.output_dir = config['output_dir']
+    else:
+        # Legacy config format
+        if not args.addresses and 'addresses_file' in config:
+            args.addresses = config['addresses_file']
+        
+        if not args.invoices and 'invoices_file' in config:
+            args.invoices = config['invoices_file']
+        
+        if not args.mainnet and config.get('mainnet', False):
+            args.mainnet = config['mainnet']
+        
+        if args.delay == 1.0 and 'delay' in config:  # Default value check
+            args.delay = config['delay']
+        
+        if not args.max_invoices and 'max_invoices' in config:
+            args.max_invoices = config['max_invoices']
+        
+        if args.output_dir == 'payment_results' and 'output_dir' in config:  # Default value check
+            args.output_dir = config['output_dir']
     
     return args
 

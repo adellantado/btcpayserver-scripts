@@ -8,6 +8,24 @@ This document explains how the three scripts work together to create a complete 
 2. **`generate_invoices.py`** - Creates BTCPay Server invoices
 3. **`pay_invoices.py`** - Pays invoices using the generated addresses
 
+## Universal Configuration
+
+The easiest way to run the complete workflow is using the universal configuration file:
+
+### Quick Start with Universal Config
+
+```bash
+# Run complete workflow with one command
+python run_workflow.py --config universal_config.json
+
+# Or run individual steps with the same config
+python generate-addresses.py --config universal_config.json
+python generate_invoices.py --config universal_config.json
+python pay_invoices.py --config universal_config.json
+```
+
+The `universal_config.json` file contains all settings for all three scripts in one place, making it easy to manage the entire workflow with consistent settings.
+
 ## Workflow Steps
 
 ### Step 1: Generate Bitcoin Addresses

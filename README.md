@@ -37,6 +37,22 @@ A collection of Python scripts for Bitcoin operations including address generati
 
 The scripts are designed to work together in a complete Bitcoin payment testing workflow:
 
+### Option 1: Universal Config (Recommended)
+Use a single configuration file for all scripts:
+
+```bash
+# Run complete workflow with one command
+python run_workflow.py --config universal_config.json
+
+# Or run individual steps with the same config
+python generate-addresses.py --config universal_config.json
+python generate_invoices.py --config universal_config.json
+python pay_invoices.py --config universal_config.json
+```
+
+### Option 2: Individual Config Files
+Use separate configuration files for each script:
+
 ```bash
 # 1. Generate and fund Bitcoin addresses
 python generate-addresses.py --config example_btc_config.json

@@ -390,27 +390,57 @@ def validate_config(config: Dict) -> bool:
 
 
 def merge_config_with_args(config: Dict, args: argparse.Namespace) -> argparse.Namespace:
-    """Merge configuration file values with command line arguments."""
-    if not args.api_key and 'api_key' in config:
-        args.api_key = config['api_key']
+    """Merge configuration file values with command line arguments.
+    Supports both legacy config format and universal config format."""
     
-    if not args.store_id and 'store_id' in config:
-        args.store_id = config['store_id']
+    # Handle universal config format
+    if '_invoice_generation' in config:
+        # Universal config format
+        invoice_config = config['_invoice_generation']
+        
+        if not args.api_key and 'api_key' in invoice_config:
+            args.api_key = invoice_config['api_key']
+        
+        if not args.store_id and 'store_id' in invoice_config:
+            args.store_id = invoice_config['store_id']
+        
+        if args.base_url == 'https://btcpay.example.com' and 'base_url' in invoice_config:
+            args.base_url = invoice_config['base_url']
+        
+        if args.count == 1000 and 'count' in invoice_config:
+            args.count = invoice_config['count']
+        
+        if args.batch_size == 50 and 'batch_size' in invoice_config:
+            args.batch_size = invoice_config['batch_size']
+        
+        if args.delay == 0.1 and 'delay' in invoice_config:
+            args.delay = invoice_config['delay']
+        
+        if args.output_dir == 'invoice_results' and 'output_dir' in invoice_config:
+            args.output_dir = invoice_config['output_dir']
     
-    if args.base_url == 'https://btcpay.example.com' and 'base_url' in config:
-        args.base_url = config['base_url']
-    
-    if args.count == 1000 and 'count' in config:
-        args.count = config['count']
-    
-    if args.batch_size == 50 and 'batch_size' in config:
-        args.batch_size = config['batch_size']
-    
-    if args.delay == 0.1 and 'delay' in config:
-        args.delay = config['delay']
-    
-    if args.output_dir == 'invoice_results' and 'output_dir' in config:
-        args.output_dir = config['output_dir']
+    else:
+        # Legacy config format
+        if not args.api_key and 'api_key' in config:
+            args.api_key = config['api_key']
+        
+        if not args.store_id and 'store_id' in config:
+            args.store_id = config['store_id']
+        
+        if args.base_url == 'https://btcpay.example.com' and 'base_url' in config:
+            args.base_url = config['base_url']
+        
+        if args.count == 1000 and 'count' in config:
+            args.count = config['count']
+        
+        if args.batch_size == 50 and 'batch_size' in config:
+            args.batch_size = config['batch_size']
+        
+        if args.delay == 0.1 and 'delay' in config:
+            args.delay = config['delay']
+        
+        if args.output_dir == 'invoice_results' and 'output_dir' in config:
+            args.output_dir = config['output_dir']
     
     return args
 

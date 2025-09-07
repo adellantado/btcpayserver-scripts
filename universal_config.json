@@ -1,0 +1,83 @@
+{
+  "_comment": "Universal Configuration for BTCPay Scripts Workflow",
+  "_note": "This single config file works with all three scripts: generate-addresses.py, generate_invoices.py, and pay_invoices.py",
+  
+  "_network_settings": {
+    "mainnet": false,
+    "_description": "Set to true for Bitcoin mainnet (real money), false for testnet (testing only)"
+  },
+  
+  "_address_generation": {
+    "count": 1000,
+    "amount": 0.001,
+    "no_funding": false,
+    "output": "generated_addresses.json",
+    "wallet_name": "wallet_0",
+    "max_fee": 0.0001,
+    "batch_size": 50,
+    "_description": "Settings for generate-addresses.py script"
+  },
+  
+  "_invoice_generation": {
+    "api_key": "your_btcpay_api_key_here",
+    "store_id": "your_store_id_here",
+    "base_url": "https://your-btcpay-server.com",
+    "count": 1000,
+    "batch_size": 50,
+    "delay": 0.1,
+    "output_dir": "invoice_results",
+    "_description": "Settings for generate_invoices.py script"
+  },
+  
+  "_payment_processing": {
+    "addresses_file": "generated_addresses.json",
+    "invoices_file": "invoice_results/successful_invoices_*.json",
+    "delay": 1.0,
+    "max_invoices": null,
+    "output_dir": "payment_results",
+    "_description": "Settings for pay_invoices.py script"
+  },
+  
+  "_key_import_options": {
+    "_note": "Use only ONE of the following key import options for address generation:",
+    "private_key": "",
+    "mnemonic": "",
+    "key_file": "",
+    "_description": "Import existing wallet for funding addresses"
+  },
+  
+  "_field_descriptions": {
+    "mainnet": "boolean - Use Bitcoin mainnet (true) or testnet (false)",
+    "count": "integer - Number of addresses/invoices to generate",
+    "amount": "float - Amount in BTC to send to each address",
+    "no_funding": "boolean - Generate addresses only, skip funding",
+    "output": "string - Output filename for generated addresses",
+    "wallet_name": "string - Name of the funding wallet",
+    "max_fee": "float - Maximum transaction fee in BTC",
+    "batch_size": "integer - Number of items to process per batch",
+    "api_key": "string - BTCPay Server API key",
+    "store_id": "string - BTCPay Server store ID",
+    "base_url": "string - BTCPay Server base URL",
+    "delay": "float - Delay between operations in seconds",
+    "output_dir": "string - Directory for output files",
+    "addresses_file": "string - Path to generated addresses file",
+    "invoices_file": "string - Path to invoices file (supports wildcards)",
+    "max_invoices": "integer - Maximum invoices to pay (null for all)"
+  },
+  
+  "_usage_examples": [
+    "# Generate addresses",
+    "python generate-addresses.py --config universal_config.json",
+    "",
+    "# Generate invoices", 
+    "python generate_invoices.py --config universal_config.json",
+    "",
+    "# Pay invoices",
+    "python pay_invoices.py --config universal_config.json",
+    "",
+    "# Complete workflow",
+    "python generate-addresses.py --config universal_config.json && python generate_invoices.py --config universal_config.json && python pay_invoices.py --config universal_config.json"
+  ],
+  
+  "_workflow_note": "This config enables a complete Bitcoin payment testing workflow with consistent settings across all scripts"
+}
