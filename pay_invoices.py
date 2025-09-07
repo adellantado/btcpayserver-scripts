@@ -121,12 +121,24 @@ class BTCPayInvoicePayment:
         Load generated invoices from JSON file.
         
         Args:
-            invoices_file (str): Path to generated invoices file
+            invoices_file (str): Path to generated invoices file (supports wildcards)
             
         Returns:
             bool: True if successful, False otherwise
         """
         try:
+            # Handle wildcard patterns
+            if '*' in invoices_file:
+                import glob
+                matching_files = glob.glob(invoices_file)
+                if not matching_files:
+                    logger.error(f"No files found matching pattern: {invoices_file}")
+                    return False
+                
+                # Use the most recent file if multiple matches
+                invoices_file = max(matching_files, key=lambda f: Path(f).stat().st_mtime)
+                logger.info(f"Using most recent file: {invoices_file}")
+            
             with open(invoices_file, 'r') as f:
                 data = json.load(f)
             

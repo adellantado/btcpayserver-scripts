@@ -21,6 +21,7 @@ A collection of Python scripts for Bitcoin operations including address generati
 - ✅ Progress tracking with visual progress bars
 - ✅ Export results to JSON files
 - ✅ Connection testing and validation
+- ✅ Configuration file support for easy automation
 
 ### 3. BTCPay Invoice Payment Processor (`pay_invoices.py`)
 - ✅ Pay BTCPay Server invoices using generated Bitcoin addresses
@@ -31,6 +32,23 @@ A collection of Python scripts for Bitcoin operations including address generati
 - ✅ Progress tracking and comprehensive logging
 - ✅ Export payment results and statistics
 - ✅ Configuration file support for easy automation
+
+## Quick Start Workflow
+
+The scripts are designed to work together in a complete Bitcoin payment testing workflow:
+
+```bash
+# 1. Generate and fund Bitcoin addresses
+python generate-addresses.py --config example_btc_config.json
+
+# 2. Generate BTCPay Server invoices
+python generate_invoices.py --config example_invoice_config.json
+
+# 3. Pay invoices using the generated addresses
+python pay_invoices.py --config example_payment_config.json
+```
+
+See [WORKFLOW.md](WORKFLOW.md) for detailed workflow documentation.
 
 ## Installation
 

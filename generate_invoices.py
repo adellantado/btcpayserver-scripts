@@ -354,6 +354,67 @@ class BTCPayInvoiceGenerator:
         print(f"Summary statistics exported to: {summary_file}")
 
 
+def load_config(config_file: str) -> Dict:
+    """Load configuration from JSON file."""
+    try:
+        with open(config_file, 'r') as f:
+            config = json.load(f)
+        return config
+    except FileNotFoundError:
+        print(f"Configuration file not found: {config_file}")
+        raise
+    except json.JSONDecodeError as e:
+        print(f"Invalid JSON in configuration file: {str(e)}")
+        raise
+    except Exception as e:
+        print(f"Error loading configuration: {str(e)}")
+        raise
+
+
+def validate_config(config: Dict) -> bool:
+    """Validate configuration file values."""
+    required_fields = ['api_key', 'store_id']
+    for field in required_fields:
+        if field not in config:
+            print(f"Config error: missing required field '{field}'")
+            return False
+    
+    # Validate optional numeric fields
+    numeric_fields = ['count', 'batch_size', 'delay']
+    for field in numeric_fields:
+        if field in config and not isinstance(config[field], (int, float)):
+            print(f"Config error: '{field}' must be a number")
+            return False
+    
+    return True
+
+
+def merge_config_with_args(config: Dict, args: argparse.Namespace) -> argparse.Namespace:
+    """Merge configuration file values with command line arguments."""
+    if not args.api_key and 'api_key' in config:
+        args.api_key = config['api_key']
+    
+    if not args.store_id and 'store_id' in config:
+        args.store_id = config['store_id']
+    
+    if args.base_url == 'https://btcpay.example.com' and 'base_url' in config:
+        args.base_url = config['base_url']
+    
+    if args.count == 1000 and 'count' in config:
+        args.count = config['count']
+    
+    if args.batch_size == 50 and 'batch_size' in config:
+        args.batch_size = config['batch_size']
+    
+    if args.delay == 0.1 and 'delay' in config:
+        args.delay = config['delay']
+    
+    if args.output_dir == 'invoice_results' and 'output_dir' in config:
+        args.output_dir = config['output_dir']
+    
+    return args
+
+
 def main():
     """Main function with command line interface."""
     parser = argparse.ArgumentParser(
@@ -367,8 +428,9 @@ Examples:
         """
     )
     
-    parser.add_argument('--api-key', required=True, help='BTCPay Server API key')
-    parser.add_argument('--store-id', required=True, help='BTCPay Server store ID')
+    parser.add_argument('--config', type=str, help='Configuration file path (JSON format)')
+    parser.add_argument('--api-key', help='BTCPay Server API key')
+    parser.add_argument('--store-id', help='BTCPay Server store ID')
     parser.add_argument('--base-url', default='https://btcpay.example.com', 
                        help='BTCPay Server base URL (default: https://btcpay.example.com)')
     parser.add_argument('--count', type=int, default=1000,
@@ -383,6 +445,28 @@ Examples:
                        help='Only test connection, do not generate invoices')
     
     args = parser.parse_args()
+    
+    # Load configuration file if provided
+    if args.config:
+        try:
+            config = load_config(args.config)
+            if not validate_config(config):
+                print(f"❌ Configuration validation failed")
+                return 1
+            args = merge_config_with_args(config, args)
+            print(f"✅ Loaded configuration from: {args.config}")
+        except Exception as e:
+            print(f"❌ Error loading configuration: {str(e)}")
+            return 1
+    
+    # Validate required arguments
+    if not args.api_key:
+        print("❌ Error: --api-key is required (or specify in config file)")
+        return 1
+    
+    if not args.store_id:
+        print("❌ Error: --store-id is required (or specify in config file)")
+        return 1
     
     # Validate arguments
     if args.count <= 0:

@@ -3,7 +3,7 @@
   "_note": "Set mainnet to true for real Bitcoin payments (be careful!)",
   
   "addresses_file": "generated_addresses.json",
-  "invoices_file": "successful_invoices.json", 
+  "invoices_file": "invoice_results/successful_invoices_*.json", 
   "mainnet": false,
   "delay": 1.0,
   "max_invoices": null,
