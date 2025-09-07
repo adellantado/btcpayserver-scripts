@@ -1,0 +1,28 @@
+{
+  "_comment": "BTCPay Invoice Payment Configuration",
+  "_note": "Set mainnet to true for real Bitcoin payments (be careful!)",
+  
+  "addresses_file": "generated_addresses.json",
+  "invoices_file": "successful_invoices.json", 
+  "mainnet": false,
+  "delay": 1.0,
+  "max_invoices": null,
+  "output_dir": "payment_results",
+  
+  "_field_descriptions": {
+    "addresses_file": "string - Path to JSON file with generated Bitcoin addresses",
+    "invoices_file": "string - Path to JSON file with BTCPay invoices to pay", 
+    "mainnet": "boolean - Use Bitcoin mainnet (true) or testnet (false)",
+    "delay": "float - Delay between payments in seconds",
+    "max_invoices": "integer - Maximum number of invoices to pay (null for all)",
+    "output_dir": "string - Directory to save payment results"
+  },
+  
+  "_usage_examples": [
+    "python pay_invoices.py --config example_payment_config.json",
+    "python pay_invoices.py --addresses addresses.json --invoices invoices.json",
+    "python pay_invoices.py --config config.json --mainnet --delay 2.0",
+    "python pay_invoices.py --config config.json --max-invoices 10 --test-only"
+  ]
+}
+
