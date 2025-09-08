@@ -54,14 +54,20 @@ logger = logging.getLogger(__name__)
 class BTCPayInvoicePayment:
     """BTCPay Server invoice payment processor using generated Bitcoin addresses."""
     
-    def __init__(self, network='testnet'):
+    def __init__(self, network='testnet', store_id=None, base_url=None, api_key=None):
         """
         Initialize the invoice payment processor.
         
         Args:
             network (str): Network type ('bitcoin' for mainnet, 'testnet' for testnet)
+            store_id (str): BTCPay Server store ID
+            base_url (str): BTCPay Server base URL
+            api_key (str): BTCPay Server API key
         """
         self.network = network
+        self.store_id = store_id
+        self.base_url = base_url
+        self.api_key = api_key
         self.addresses = []
         self.invoices = []
         self.payment_results = []
@@ -184,63 +190,70 @@ class BTCPayInvoicePayment:
             logger.error(f"Error loading invoices: {str(e)}")
             return False
     
-    def get_invoice_payment_info(self, invoice: Dict) -> Optional[Dict]:
+    def get_invoice_payment_info(self, invoice: Dict, store_id: str, base_url: str, api_key: str) -> Optional[Dict]:
         """
         Get Bitcoin payment information for a BTCPay invoice.
         
         Args:
             invoice (Dict): Invoice data
+            store_id (str): BTCPay Server store ID
+            base_url (str): BTCPay Server base URL
+            api_key (str): BTCPay Server API key
             
         Returns:
             Optional[Dict]: Payment information or None if failed
         """
         try:
-            # Extract BTCPay server URL from checkout link
-            checkout_link = invoice.get('checkout_link', '')
-            if not checkout_link:
-                logger.error(f"No checkout link for invoice {invoice.get('invoice_id')}")
+            invoice_id = invoice.get('invoice_id')
+            if not invoice_id:
+                logger.error(f"No invoice ID found in invoice data")
                 return None
             
-            # Parse BTCPay server URL
-            if '/i/' in checkout_link:
-                base_url = checkout_link.split('/i/')[0]
-                invoice_id = invoice.get('invoice_id')
-            else:
-                logger.error(f"Invalid checkout link format: {checkout_link}")
-                return None
+            # Use the correct BTCPay Server API endpoint
+            api_url = f"{base_url.rstrip('/')}/api/v1/stores/{store_id}/invoices/{invoice_id}"
             
-            # Get invoice details from BTCPay API
-            api_url = f"{base_url}/i/{invoice_id}/status"
-            response = requests.get(api_url, timeout=30)
+            headers = {
+                'Authorization': f'token {api_key}',
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            }
+            
+            response = requests.get(api_url, headers=headers, timeout=30)
             
             if response.status_code != 200:
                 logger.error(f"Failed to get invoice details: HTTP {response.status_code}")
                 return None
             
-            invoice_data = response.json()
-            
-            # Extract Bitcoin payment information
-            bitcoin_data = None
-            payment_methods = invoice_data.get('availableCryptos', [])
-            
-            for method in payment_methods:
-                if method.get('cryptoCode', '').upper() == 'BTC':
-                    bitcoin_data = method
-                    break
-            
-            if not bitcoin_data:
-                logger.error(f"No Bitcoin payment method found for invoice {invoice_id}")
+            # Response is an array, get the first invoice
+            invoice_data_list = response.json()
+            if not invoice_data_list or len(invoice_data_list) == 0:
+                logger.error(f"No invoice data returned for invoice {invoice_id}")
                 return None
             
+            invoice_data = invoice_data_list[0]
+            
+            # Extract payment information from the response
             payment_info = {
-                'invoice_id': invoice_id,
-                'btc_address': bitcoin_data.get('destination'),
-                'btc_amount': float(bitcoin_data.get('due', 0)),
-                'btc_amount_satoshis': int(float(bitcoin_data.get('due', 0)) * 100_000_000),
-                'payment_url': bitcoin_data.get('paymentLink'),
-                'qr_code_url': bitcoin_data.get('paymentUrls', {}).get('BIP21'),
+                'btc_address': invoice_data['checkout']['paymentMethods'][0]['destination'],
+                'btc_amount': float(invoice_data.get('amount')),
+                'btc_amount_satoshis': int(float(invoice_data.get('amount')) * 100_000_000),
+                'payment_url': invoice_data.get('checkoutLink'),
+                'invoice_id': invoice_data.get('id'),
+                'store_id': invoice_data.get('storeId'),
+                'amount': invoice_data.get('amount'),
+                'paid_amount': invoice_data.get('paidAmount'),
+                'currency': invoice_data.get('currency'),
                 'status': invoice_data.get('status'),
-                'expires_at': invoice_data.get('expirationTime')
+                'additional_status': invoice_data.get('additionalStatus'),
+                'checkout_link': invoice_data.get('checkoutLink'),
+                'created_time': invoice_data.get('createdTime'),
+                'expires_at': invoice_data.get('expirationTime'),
+                'expiration_time': invoice_data.get('expirationTime'),
+                'monitoring_expiration': invoice_data.get('monitoringExpiration'),
+                'archived': invoice_data.get('archived'),
+                'metadata': invoice_data.get('metadata'),
+                'checkout': invoice_data.get('checkout'),
+                'receipt': invoice_data.get('receipt')
             }
             
             return payment_info
@@ -326,7 +339,7 @@ class BTCPayInvoicePayment:
             logger.info(f"Processing payment for invoice {invoice_id}")
             
             # Get payment information
-            payment_info = self.get_invoice_payment_info(invoice)
+            payment_info = self.get_invoice_payment_info(invoice, self.store_id, self.base_url, self.api_key)
             if not payment_info:
                 return False, {'error': 'Failed to get payment information'}
             
@@ -615,6 +628,16 @@ def merge_config_with_args(config: Dict, args: argparse.Namespace) -> argparse.N
         
         if args.output_dir == 'payment_results' and 'output_dir' in payment_config:  # Default value check
             args.output_dir = payment_config['output_dir']
+        
+        # BTCPay Server configuration
+        if not args.store_id and 'store_id' in payment_config:
+            args.store_id = payment_config['store_id']
+        
+        if not args.base_url and 'base_url' in payment_config:
+            args.base_url = payment_config['base_url']
+        
+        if not args.api_key and 'api_key' in payment_config:
+            args.api_key = payment_config['api_key']
     
     else:
         # Legacy config format
@@ -635,6 +658,16 @@ def merge_config_with_args(config: Dict, args: argparse.Namespace) -> argparse.N
         
         if args.output_dir == 'payment_results' and 'output_dir' in config:  # Default value check
             args.output_dir = config['output_dir']
+        
+        # BTCPay Server configuration
+        if not args.store_id and 'store_id' in config:
+            args.store_id = config['store_id']
+        
+        if not args.base_url and 'base_url' in config:
+            args.base_url = config['base_url']
+        
+        if not args.api_key and 'api_key' in config:
+            args.api_key = config['api_key']
     
     return args
 
@@ -646,9 +679,9 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  %(prog)s --addresses generated_addresses.json --invoices successful_invoices.json
+  %(prog)s --addresses generated_addresses.json --invoices successful_invoices.json --store-id store123 --base-url https://btcpay.example.com --api-key abc123
   %(prog)s --config payment_config.json
-  %(prog)s --addresses addresses.json --invoices invoices.json --mainnet --delay 2.0
+  %(prog)s --addresses addresses.json --invoices invoices.json --mainnet --delay 2.0 --store-id store123 --base-url https://btcpay.example.com --api-key abc123
         """
     )
     
@@ -660,6 +693,9 @@ Examples:
     parser.add_argument('--max-invoices', type=int, help='Maximum number of invoices to pay')
     parser.add_argument('--output-dir', default='payment_results', help='Output directory for result files (default: payment_results)')
     parser.add_argument('--test-only', action='store_true', help='Only test loading files, do not make payments')
+    parser.add_argument('--store-id', type=str, help='BTCPay Server store ID')
+    parser.add_argument('--base-url', type=str, help='BTCPay Server base URL')
+    parser.add_argument('--api-key', type=str, help='BTCPay Server API key')
     
     args = parser.parse_args()
     
@@ -685,6 +721,19 @@ Examples:
         print("❌ Error: --invoices is required (or specify in config file)")
         return 1
     
+    # Validate BTCPay Server configuration
+    if not args.store_id:
+        print("❌ Error: --store-id is required (or specify in config file)")
+        return 1
+    
+    if not args.base_url:
+        print("❌ Error: --base-url is required (or specify in config file)")
+        return 1
+    
+    if not args.api_key:
+        print("❌ Error: --api-key is required (or specify in config file)")
+        return 1
+    
     # Warning for mainnet usage
     if args.mainnet:
         print("\n⚠️  WARNING: You are about to make payments on Bitcoin MAINNET!")
@@ -697,7 +746,12 @@ Examples:
     try:
         # Initialize payment processor
         network = 'bitcoin' if args.mainnet else 'testnet'
-        processor = BTCPayInvoicePayment(network=network)
+        processor = BTCPayInvoicePayment(
+            network=network,
+            store_id=args.store_id,
+            base_url=args.base_url,
+            api_key=args.api_key
+        )
         
         # Load addresses and invoices
         print("Loading addresses...")
