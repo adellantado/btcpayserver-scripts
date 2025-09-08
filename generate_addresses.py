@@ -621,20 +621,20 @@ Examples:
             )
         
         # Create and save summary
-        summary = generator.create_funding_summary()
-        summary_file = f"summary_{int(time.time())}.json"
+        # summary = generator.create_funding_summary()
+        # summary_file = f"summary_{int(time.time())}.json"
         
-        with open(summary_file, 'w') as f:
-            json.dump(summary, f, indent=2)
+        # with open(summary_file, 'w') as f:
+        #     json.dump(summary, f, indent=2)
         
-        logger.info(f"Operation complete. Summary saved to {summary_file}")
+        # logger.info(f"Operation complete. Summary saved to {summary_file}")
         
         # Print final statistics
         print(f"\n📊 Final Statistics:")
         print(f"Network: {generator.network}")
         print(f"Addresses generated: {len(addresses)}")
         print(f"Output file: {args.output}")
-        print(f"Summary file: {summary_file}")
+        # print(f"Summary file: {summary_file}")
         
         # Show configuration details
         if args.config:
