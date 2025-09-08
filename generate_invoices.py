@@ -108,17 +108,14 @@ class BTCPayInvoiceGenerator:
         invoice_data = {
             'amount': str(amount),
             'currency': currency,
-            'orderId': f'INV-{datetime.now().strftime("%Y%m%d")}-{index:06d}',
-            'itemDesc': random.choice(items),
             'posData': json.dumps({
                 'invoiceIndex': index,
                 'generatedAt': datetime.now().isoformat(),
                 'batchId': f'batch-{int(time.time())}'
             }),
-            'notificationURL': f'{self.base_url}/webhooks/invoice-updated',
-            'redirectURL': f'{self.base_url}/invoice-success',
-            'extendedNotifications': True,
             'metadata': {
+                'orderId': f'INV-{datetime.now().strftime("%Y%m%d")}-{index:06d}',
+                'itemDesc': random.choice(items),
                 'buyerName': f'Customer-{index:06d}',
                 'buyerEmail': f'customer{index:06d}@example.com',
                 'itemCode': f'ITEM-{random.randint(1000, 9999)}',
@@ -154,7 +151,7 @@ class BTCPayInvoiceGenerator:
                         'index': index,
                         'success': True,
                         'invoice_id': result.get('id'),
-                        'order_id': invoice_data['orderId'],
+                        'order_id': invoice_data['metadata']['orderId'],
                         'amount': invoice_data['amount'],
                         'currency': invoice_data['currency'],
                         'status': result.get('status'),
