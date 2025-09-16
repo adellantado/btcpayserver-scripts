@@ -363,11 +363,10 @@ class BTCAddressGenerator:
                 'wallet_name': self.funding_wallet.name,
                 'network': self.network,
                 'balance': self.get_wallet_balance(),
-                'main_address': self.funding_wallet.get_key().address,
-                'private_key': main_key.private_hex if main_key else None,
-                'public_key': main_key.public_hex if main_key else None,
-                'wif': main_key.wif() if main_key else None,
-                'mnemonic': self.funding_wallet.mnemonic() if hasattr(self.funding_wallet, 'mnemonic') else None
+                'main_address': self.funding_wallet.get_key(0).address,
+                'private_key': main_key.key_private if main_key else None,
+                'public_key': main_key.key_public if main_key else None,
+                'wif': main_key.wif if main_key else None,
             }
             
             return info
@@ -727,15 +726,6 @@ Examples:
                 max_fee=args.max_fee,
                 batch_size=args.batch_size
             )
-        
-        # Create and save summary
-        # summary = generator.create_funding_summary()
-        # summary_file = f"summary_{int(time.time())}.json"
-        
-        # with open(summary_file, 'w') as f:
-        #     json.dump(summary, f, indent=2)
-        
-        # logger.info(f"Operation complete. Summary saved to {summary_file}")
         
         # Print final statistics
         print(f"\n📊 Final Statistics:")
