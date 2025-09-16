@@ -148,7 +148,8 @@ class BTCAddressGenerator:
                 logger.info(f"Created new wallet: {wallet_name}, seed: {mnemonic}, zero address: {self.funding_wallet.addresslist()[0]}")
         
         # Get wallet info
-        balance = self.funding_wallet.balance()
+        balance = self.get_wallet_balance()
+
         logger.info(f"Wallet balance: {balance} satoshis")
         
         return self.funding_wallet
@@ -278,7 +279,37 @@ class BTCAddressGenerator:
             return 0
         
         try:
-            return self.funding_wallet.balance()
+            # First try the wallet's internal balance
+            balance = self.funding_wallet.balance()
+            
+            # If balance is 0, try to get it from the service provider directly
+            if balance == 0:
+                logger.info(f"Wallet internal balance is 0, trying to get it from the service provider")
+                try:
+                    from bitcoinlib.services.services import Service
+                    service = Service(network=self.network)
+                    main_address = self.funding_wallet.addresslist()[0]
+                    service_balance = service.getbalance(main_address)
+                    if service_balance > 0:
+                        logger.info(f"Wallet internal balance is 0, but service shows {service_balance} satoshis. Updating wallet...")
+                        # Try to update the wallet's UTXOs
+                        try:
+                            self.funding_wallet.utxos_update()
+                            # Check balance again after update
+                            balance = self.funding_wallet.balance()
+                            if balance > 0:
+                                logger.info(f"Wallet update successful, balance now: {balance} satoshis")
+                                return balance
+                        except Exception as update_error:
+                            logger.warning(f"Wallet UTXO update failed: {update_error}")
+                        
+                        # If wallet update failed, use service balance directly
+                        logger.info(f"Using service balance directly: {service_balance} satoshis")
+                        return service_balance
+                except Exception as service_error:
+                    logger.warning(f"Could not get balance from service: {service_error}")
+            
+            return balance
         except Exception as e:
             logger.error(f"Error getting wallet balance: {str(e)}")
             return 0
