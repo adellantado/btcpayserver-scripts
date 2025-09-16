@@ -16,7 +16,7 @@ Usage:
     python generate_addresses.py --key-file path/to/keyfile [--mainnet]
     python generate_addresses.py --config example_btc_config.json
     python generate_addresses.py --config config.json --count 2000  # Override config values
-    python generate_addresses.py --derivation-mode --derivation-path "m/84'/1'/0'/0" --start-index 0
+    python generate_addresses.py --derivation-mode --start-index 0
     python generate_addresses.py --config config.json --derivation-mode  # Use config for derivation settings
 """
 
@@ -470,18 +470,9 @@ def validate_config(config: Dict) -> bool:
         logger.error("Config error: 'start_index' must be a non-negative integer")
         return False
     
-    # Validate derivation_path format
-    if 'derivation_path' in config:
-        if not isinstance(config['derivation_path'], str):
-            logger.error("Config error: 'derivation_path' must be a string")
-            return False
-        # Basic validation for BIP32 path format
-        if not config['derivation_path'].startswith('m/'):
-            logger.error("Config error: 'derivation_path' must start with 'm/'")
-            return False
     
     # Validate string fields
-    string_fields = ['output', 'wallet_name', 'private_key', 'mnemonic', 'key_file', 'derivation_path']
+    string_fields = ['output', 'wallet_name', 'private_key', 'mnemonic', 'key_file']
     for field in string_fields:
         if field in config and not isinstance(config[field], str):
             logger.error(f"Config error: '{field}' must be a string")
@@ -530,9 +521,6 @@ def merge_config_with_args(config: Dict, args: argparse.Namespace) -> argparse.N
         # Derivation path settings
         if not args.derivation_mode and addr_config.get('derivation_mode', False):
             args.derivation_mode = addr_config['derivation_mode']
-        
-        if args.derivation_path == "m/84'/1'/0'/0" and 'derivation_path' in addr_config:
-            args.derivation_path = addr_config['derivation_path']
         
         if args.start_index == 0 and 'start_index' in addr_config:
             args.start_index = addr_config['start_index']
@@ -584,9 +572,6 @@ def merge_config_with_args(config: Dict, args: argparse.Namespace) -> argparse.N
         if not args.derivation_mode and config.get('derivation_mode', False):
             args.derivation_mode = config['derivation_mode']
         
-        if args.derivation_path == "m/84'/1'/0'/0" and 'derivation_path' in config:
-            args.derivation_path = config['derivation_path']
-        
         if args.start_index == 0 and 'start_index' in config:
             args.start_index = config['start_index']
         
@@ -629,7 +614,7 @@ Examples:
   %(prog)s --private-key abc123... --count 100
   %(prog)s --config config.json
   %(prog)s --config config.json --count 2000  # Override config with CLI args
-  %(prog)s --derivation-mode --derivation-path "m/84'/1'/0'/0" --start-index 0 --count 100
+  %(prog)s --derivation-mode --start-index 0 --count 100
   %(prog)s --config config.json --derivation-mode  # Use config for derivation settings
         """
     )
@@ -646,7 +631,6 @@ Examples:
     parser.add_argument('--max-fee', type=float, default=0.0001, help='Maximum fee in BTC per transaction (default: 0.0001)')
     parser.add_argument('--batch-size', type=int, default=50, help='Number of addresses to fund per transaction (default: 50)')
     parser.add_argument('--derivation-mode', action='store_true', help='Generate addresses from existing wallet using derivation path instead of creating new wallets')
-    parser.add_argument('--derivation-path', type=str, default="m/84'/1'/0'/0", help='Derivation path for address generation (default: m/84\'/1\'/0\'/0 for testnet)')
     parser.add_argument('--start-index', type=int, default=0, help='Starting index for derivation path (default: 0)')
     
     args = parser.parse_args()
@@ -760,7 +744,6 @@ Examples:
         print(f"Output file: {args.output}")
         if args.derivation_mode:
             print(f"Mode: Derivation path generation")
-            print(f"Derivation path: {args.derivation_path}")
             print(f"Start index: {args.start_index}")
         else:
             print(f"Mode: New wallet generation")

@@ -12,10 +12,12 @@
     "amount": 0.001,
     "no_funding": false,
     "output": "generated_addresses.json",
-    "wallet_name": "wallet_0",
+    "wallet_name": "wallet_1",
     "max_fee": 0.0001,
     "batch_size": 50,
-    "_description": "Settings for generate_addresses.py script"
+    "derivation_mode": true,
+    "start_index": 1,
+    "_description": "Settings for generate_addresses.py script. Set derivation_mode to true to generate addresses from existing wallet using derivation path"
   },
   
   "_invoice_generation": {
@@ -62,12 +64,17 @@
     "output_dir": "string - Directory for output files",
     "addresses_file": "string - Path to generated addresses file",
     "invoices_file": "string - Path to invoices file (supports wildcards)",
-    "max_invoices": "integer - Maximum invoices to pay (null for all)"
+    "max_invoices": "integer - Maximum invoices to pay (null for all)",
+    "derivation_mode": "boolean - Generate addresses from existing wallet using derivation path",
+    "start_index": "integer - Starting index for derivation path address generation"
   },
   
   "_usage_examples": [
-    "# Generate addresses",
+    "# Generate addresses (new wallets)",
     "python generate_addresses.py --config universal_config.json",
+    "",
+    "# Generate addresses from derivation path",
+    "python generate_addresses.py --config universal_config.json --derivation-mode",
     "",
     "# Generate invoices", 
     "python generate_invoices.py --config universal_config.json",
