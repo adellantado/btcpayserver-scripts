@@ -16,6 +16,8 @@ Usage:
     python generate_addresses.py --key-file path/to/keyfile [--mainnet]
     python generate_addresses.py --config example_btc_config.json
     python generate_addresses.py --config config.json --count 2000  # Override config values
+    python generate_addresses.py --derivation-mode --derivation-path "m/84'/1'/0'/0" --start-index 0
+    python generate_addresses.py --config config.json --derivation-mode  # Use config for derivation settings
 """
 
 import os
@@ -27,8 +29,7 @@ from decimal import Decimal
 import argparse
 
 try:
-    from bitcoinlib.wallets import Wallet
-    from bitcoinlib.keys import HDKey
+    from bitcoinlib.wallets import Wallet, Mnemonic, HDKey, wallet_delete_if_exists
     from bitcoinlib.transactions import Transaction
     from bitcoinlib.services.services import Service
 except ImportError:
@@ -84,29 +85,29 @@ class BTCAddressGenerator:
                     logger.info(f"Importing wallet from private key...")
                     # Delete existing wallet if it exists
                     try:
-                        existing_wallet = Wallet(wallet_name, network=self.network)
-                        existing_wallet.delete()
+                        wallet_delete_if_exists(wallet_name, force=True)
                         logger.info(f"Deleted existing wallet: {wallet_name}")
-                    except:
+                    except Exception as e:
+                        logger.warning(f"Could not delete existing wallet {wallet_name}: {str(e)}")
                         pass
                     
                     # Create wallet from private key
-                    self.funding_wallet = Wallet.create(
+                    self.funding_wallet: Wallet = Wallet.create(
                         wallet_name,
                         keys=private_key,
                         network=self.network,
-                        witness_type='segwit'
+                        witness_type='segwit',
                     )
-                    logger.info(f"Imported wallet from private key: {wallet_name}")
+                    logger.info(f"Imported wallet from private key: {wallet_name}, zero address: {self.funding_wallet.addresslist()[0]}")
                     
                 elif mnemonic:
                     logger.info(f"Importing wallet from mnemonic...")
                     # Delete existing wallet if it exists
                     try:
-                        existing_wallet = Wallet(wallet_name, network=self.network)
-                        existing_wallet.delete()
+                        wallet_delete_if_exists(wallet_name, force=True)
                         logger.info(f"Deleted existing wallet: {wallet_name}")
-                    except:
+                    except Exception as e:
+                        logger.warning(f"Could not delete existing wallet {wallet_name}: {str(e)}")
                         pass
                     
                     # Create wallet from mnemonic
@@ -116,7 +117,7 @@ class BTCAddressGenerator:
                         network=self.network,
                         witness_type='segwit'
                     )
-                    logger.info(f"Imported wallet from mnemonic: {wallet_name}")
+                    logger.info(f"Imported wallet from mnemonic: {wallet_name}, zero address: {self.funding_wallet.addresslist()[0]}")
             else:
                 # Try to load existing wallet
                 self.funding_wallet = Wallet(wallet_name, network=self.network)
@@ -127,13 +128,24 @@ class BTCAddressGenerator:
                 logger.error(f"Failed to import wallet: {str(e)}")
                 raise
             else:
-                # Create new wallet if it doesn't exist
+
+                try:
+                    wallet_delete_if_exists(wallet_name, force=True)
+                    logger.info(f"Deleted existing wallet: {wallet_name}")
+                except Exception as e:
+                    logger.warning(f"Could not delete existing wallet {wallet_name}: {str(e)}")
+                    pass
+
+                mn = Mnemonic()
+                mnemonic = mn.generate()   
                 self.funding_wallet = Wallet.create(
-                    wallet_name,
+                    wallet_name, 
+                    keys=mnemonic, 
                     network=self.network,
                     witness_type='segwit'
                 )
-                logger.info(f"Created new wallet: {wallet_name}")
+
+                logger.info(f"Created new wallet: {wallet_name}, seed: {mnemonic}, zero address: {self.funding_wallet.addresslist()[0]}")
         
         # Get wallet info
         balance = self.funding_wallet.balance()
@@ -181,6 +193,57 @@ class BTCAddressGenerator:
         
         self.generated_addresses = addresses
         logger.info(f"Successfully generated {len(addresses)} addresses")
+        
+        return addresses
+    
+    def generate_addresses_from_path(self, start_index: int = 0, count: int = 1000) -> List[Dict]:
+        """
+        Generate addresses from an existing wallet using a derivation path.
+        
+        Args:
+            start_index (int): Starting index for address generation
+            count (int): Number of addresses to generate
+            
+        Returns:
+            List[Dict]: List of generated address information
+        """
+        if not self.funding_wallet:
+            logger.error("Funding wallet not initialized. Cannot generate addresses from derivation path.")
+            return []
+        
+        logger.info(f"Starting generation of {count} addresses starting from index: {start_index}")
+        
+        addresses = []
+        
+        try:
+
+            keys = self.funding_wallet.get_keys(account_id=0, number_of_keys=count+start_index)
+            
+            for i in range(start_index, start_index+count):
+                try:
+                    # Get address information
+                    address_info = {
+                        'index': i,
+                        'address': keys[i].address,
+                        'wif': keys[i].wif,
+                        'network': self.network
+                    }
+                    
+                    addresses.append(address_info)
+                    
+                    if (i + 1) % 100 == 0:
+                        logger.info(f"Generated {i + 1}/{count} addresses...")
+                        
+                except Exception as e:
+                    logger.error(f"Error generating address (index {i}): {str(e)}")
+                    continue
+            
+            self.generated_addresses = addresses
+            logger.info(f"Successfully generated {len(addresses)} addresses from derivation path")
+            
+        except Exception as e:
+            logger.error(f"Error in derivation path generation: {str(e)}")
+            return []
         
         return addresses
     
@@ -397,8 +460,28 @@ def validate_config(config: Dict) -> bool:
         logger.error("Config error: 'no_funding' must be a boolean")
         return False
     
+    # Validate derivation_mode
+    if 'derivation_mode' in config and not isinstance(config['derivation_mode'], bool):
+        logger.error("Config error: 'derivation_mode' must be a boolean")
+        return False
+    
+    # Validate start_index
+    if 'start_index' in config and (not isinstance(config['start_index'], int) or config['start_index'] < 0):
+        logger.error("Config error: 'start_index' must be a non-negative integer")
+        return False
+    
+    # Validate derivation_path format
+    if 'derivation_path' in config:
+        if not isinstance(config['derivation_path'], str):
+            logger.error("Config error: 'derivation_path' must be a string")
+            return False
+        # Basic validation for BIP32 path format
+        if not config['derivation_path'].startswith('m/'):
+            logger.error("Config error: 'derivation_path' must start with 'm/'")
+            return False
+    
     # Validate string fields
-    string_fields = ['output', 'wallet_name', 'private_key', 'mnemonic', 'key_file']
+    string_fields = ['output', 'wallet_name', 'private_key', 'mnemonic', 'key_file', 'derivation_path']
     for field in string_fields:
         if field in config and not isinstance(config[field], str):
             logger.error(f"Config error: '{field}' must be a string")
@@ -444,6 +527,16 @@ def merge_config_with_args(config: Dict, args: argparse.Namespace) -> argparse.N
         if args.output == 'generated_addresses.json' and 'output' in addr_config:
             args.output = addr_config['output']
         
+        # Derivation path settings
+        if not args.derivation_mode and addr_config.get('derivation_mode', False):
+            args.derivation_mode = addr_config['derivation_mode']
+        
+        if args.derivation_path == "m/84'/1'/0'/0" and 'derivation_path' in addr_config:
+            args.derivation_path = addr_config['derivation_path']
+        
+        if args.start_index == 0 and 'start_index' in addr_config:
+            args.start_index = addr_config['start_index']
+        
         # Key import options
         if not args.private_key and 'private_key' in key_config and key_config['private_key']:
             args.private_key = key_config['private_key']
@@ -487,6 +580,16 @@ def merge_config_with_args(config: Dict, args: argparse.Namespace) -> argparse.N
         if args.output == 'generated_addresses.json' and 'output' in config:
             args.output = config['output']
         
+        # Derivation path settings
+        if not args.derivation_mode and config.get('derivation_mode', False):
+            args.derivation_mode = config['derivation_mode']
+        
+        if args.derivation_path == "m/84'/1'/0'/0" and 'derivation_path' in config:
+            args.derivation_path = config['derivation_path']
+        
+        if args.start_index == 0 and 'start_index' in config:
+            args.start_index = config['start_index']
+        
         if not args.private_key and 'private_key' in config:
             args.private_key = config['private_key']
         
@@ -526,6 +629,8 @@ Examples:
   %(prog)s --private-key abc123... --count 100
   %(prog)s --config config.json
   %(prog)s --config config.json --count 2000  # Override config with CLI args
+  %(prog)s --derivation-mode --derivation-path "m/84'/1'/0'/0" --start-index 0 --count 100
+  %(prog)s --config config.json --derivation-mode  # Use config for derivation settings
         """
     )
     parser.add_argument('--config', type=str, help='Configuration file path (JSON format)')
@@ -540,6 +645,9 @@ Examples:
     parser.add_argument('--wallet-name', type=str, default='wallet_0', help='Name of the funding wallet (default: wallet_0)')
     parser.add_argument('--max-fee', type=float, default=0.0001, help='Maximum fee in BTC per transaction (default: 0.0001)')
     parser.add_argument('--batch-size', type=int, default=50, help='Number of addresses to fund per transaction (default: 50)')
+    parser.add_argument('--derivation-mode', action='store_true', help='Generate addresses from existing wallet using derivation path instead of creating new wallets')
+    parser.add_argument('--derivation-path', type=str, default="m/84'/1'/0'/0", help='Derivation path for address generation (default: m/84\'/1\'/0\'/0 for testnet)')
+    parser.add_argument('--start-index', type=int, default=0, help='Starting index for derivation path (default: 0)')
     
     args = parser.parse_args()
     
@@ -598,16 +706,32 @@ Examples:
         # Initialize generator
         generator = BTCAddressGenerator(testnet=not args.mainnet)
         
-        # Create or load funding wallet
-        if not args.no_funding:
+        if key_methods == 1:
+            # Create or load funding wallet
             generator.create_or_load_funding_wallet(
                 wallet_name=args.wallet_name,
                 private_key=private_key,
                 mnemonic=mnemonic
             )
+        else:
+            # Create or load funding wallet
+            if not args.no_funding:
+                generator.create_or_load_funding_wallet(
+                    wallet_name=args.wallet_name,
+                    private_key=private_key,
+                    mnemonic=mnemonic
+                )
         
         # Generate addresses
-        addresses = generator.generate_addresses(args.count)
+        if args.derivation_mode:
+            # Generate addresses from derivation path
+            addresses = generator.generate_addresses_from_path(
+                start_index=args.start_index,
+                count=args.count
+            )
+        else:
+            # Generate new addresses (original mode)
+            addresses = generator.generate_addresses(args.count)
         
         # Save addresses to file
         generator.save_addresses_to_file(args.output)
@@ -634,6 +758,12 @@ Examples:
         print(f"Network: {generator.network}")
         print(f"Addresses generated: {len(addresses)}")
         print(f"Output file: {args.output}")
+        if args.derivation_mode:
+            print(f"Mode: Derivation path generation")
+            print(f"Derivation path: {args.derivation_path}")
+            print(f"Start index: {args.start_index}")
+        else:
+            print(f"Mode: New wallet generation")
         # print(f"Summary file: {summary_file}")
         
         # Show configuration details
