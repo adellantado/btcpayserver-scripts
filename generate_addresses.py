@@ -382,22 +382,10 @@ class BTCAddressGenerator:
                 for addr_info in batch:
                     outputs.append((addr_info['address'], amount_satoshis))
                 
-                # Get the funding wallet's main address for change and OP_RETURN
-                funding_address = self.funding_wallet.addresslist()[0]
-                
-                # Add OP_RETURN output with original funding address
-                # OP_RETURN data is limited to 80 bytes, so we'll use the address
-                op_return_data = f"ORIG:{funding_address}".encode('utf-8')
-                outputs.append(('OP_RETURN', op_return_data))
-
                 logger.info(f"Creating transaction for batch {i//batch_size + 1} with {len(batch)} addresses...")
-                logger.info(f"OP_RETURN data: ORIG:{funding_address}")
                 
                 # Create and send transaction
-                tx = self.funding_wallet.send(
-                    outputs, 
-                    fee=max_fee_satoshis
-                )
+                tx = self.funding_wallet.send(outputs, fee=max_fee_satoshis)
                 
                 if tx and tx.txid:
                     # Verify transaction was actually created and broadcasted
