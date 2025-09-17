@@ -225,8 +225,8 @@ class BTCAddressGenerator:
                     # Get address information
                     address_info = {
                         'index': i,
-                        'address': keys[i].address,
-                        'wif': keys[i].wif,
+                        'address': keys[i-1].address,
+                        'wif': keys[i-1].wif,
                         'network': self.network
                     }
                     
