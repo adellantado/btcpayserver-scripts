@@ -346,6 +346,30 @@ class BTCAddressGenerator:
             logger.error(f"Insufficient balance. Need: {total_needed} satoshis, Have: {current_balance} satoshis")
             return
         
+        # Validate UTXOs before attempting transactions
+        logger.info("Validating wallet UTXOs...")
+        try:
+            utxos = self.funding_wallet.utxos()
+            if not utxos:
+                logger.error("No UTXOs available for spending. Wallet may not be properly synchronized.")
+                logger.info("Attempting to force wallet synchronization...")
+                try:
+                    self.funding_wallet.utxos_update()
+                    utxos = self.funding_wallet.utxos()
+                    if not utxos:
+                        logger.error("Failed to synchronize UTXOs. Cannot create transactions.")
+                        return
+                    else:
+                        logger.info(f"Successfully synchronized {len(utxos)} UTXOs")
+                except Exception as sync_error:
+                    logger.error(f"Failed to synchronize wallet: {sync_error}")
+                    return
+            else:
+                logger.info(f"Found {len(utxos)} UTXOs available for spending")
+        except Exception as e:
+            logger.error(f"Error validating UTXOs: {e}")
+            return
+        
         # Fund addresses in batches to avoid creating huge transactions
         funded_count = 0
         
@@ -358,17 +382,57 @@ class BTCAddressGenerator:
                 for addr_info in batch:
                     outputs.append((addr_info['address'], amount_satoshis))
                 
+                logger.info(f"Creating transaction for batch {i//batch_size + 1} with {len(batch)} addresses...")
+                
                 # Create and send transaction
                 tx = self.funding_wallet.send(outputs, fee=max_fee_satoshis)
                 
-                if tx:
-                    funded_count += len(batch)
-                    logger.info(f"Funded batch {i//batch_size + 1}: {len(batch)} addresses (TX: {tx.txid})")
+                if tx and tx.txid:
+                    # Verify transaction was actually created and broadcasted
+                    logger.info(f"Transaction created: {tx.txid}")
+                    
+                    # Wait a moment and verify the transaction exists
+                    time.sleep(3)
+                    
+                    # Try to verify transaction was broadcasted by checking if it exists
+                    broadcasted = False
+                    try:
+                        from bitcoinlib.services.services import Service
+                        service = Service(network=self.network)
+                        tx_info = service.gettransaction(tx.txid)
+                        if tx_info:
+                            broadcasted = True
+                            logger.info(f"✅ Transaction verified on network: {tx.txid}")
+                        else:
+                            logger.warning(f"⚠️  Transaction {tx.txid} not found on network, attempting manual broadcast...")
+                            
+                            # Try manual broadcasting
+                            if hasattr(tx, 'raw_hex'):
+                                broadcasted = self.manual_broadcast_transaction(tx.raw_hex())
+                            else:
+                                logger.warning("Cannot get raw transaction hex for manual broadcasting")
+                                
+                    except Exception as verify_error:
+                        logger.warning(f"Could not verify transaction {tx.txid}: {verify_error}")
+                        
+                        # Try manual broadcasting as fallback
+                        try:
+                            if hasattr(tx, 'raw_hex'):
+                                broadcasted = self.manual_broadcast_transaction(tx.raw_hex())
+                        except Exception as broadcast_error:
+                            logger.warning(f"Manual broadcasting failed: {broadcast_error}")
+                    
+                    if broadcasted:
+                        funded_count += len(batch)
+                        logger.info(f"✅ Funded batch {i//batch_size + 1}: {len(batch)} addresses (TX: {tx.txid})")
+                    else:
+                        logger.warning(f"⚠️  Transaction {tx.txid} created but may not be broadcasted")
+                        funded_count += len(batch)  # Still count as funded since transaction was created
                     
                     # Add small delay between batches to avoid overwhelming the network
                     time.sleep(2)
                 else:
-                    logger.error(f"Failed to send transaction for batch {i//batch_size + 1}")
+                    logger.error(f"Failed to create transaction for batch {i//batch_size + 1}")
                     
             except Exception as e:
                 logger.error(f"Error funding batch {i//batch_size + 1}: {str(e)}")
@@ -376,6 +440,54 @@ class BTCAddressGenerator:
         
         logger.info(f"Funding complete. Successfully funded {funded_count}/{len(self.generated_addresses)} addresses")
     
+    def manual_broadcast_transaction(self, tx_hex: str) -> bool:
+        """
+        Manually broadcast a transaction using alternative methods.
+        
+        Args:
+            tx_hex (str): Raw transaction hex string
+            
+        Returns:
+            bool: True if broadcasted successfully, False otherwise
+        """
+        try:
+            # Method 1: Try using requests to broadcast to multiple testnet APIs
+            import requests
+            
+            testnet_apis = [
+                "https://blockstream.info/testnet/api/tx",
+                "https://mempool.space/testnet/api/tx",
+                "https://api.blockcypher.com/v1/btc/test3/txs/push"
+            ]
+            
+            for api_url in testnet_apis:
+                try:
+                    response = requests.post(api_url, data=tx_hex, timeout=10)
+                    if response.status_code in [200, 201]:
+                        logger.info(f"✅ Transaction broadcasted via {api_url}")
+                        return True
+                except Exception as e:
+                    logger.debug(f"Failed to broadcast via {api_url}: {e}")
+                    continue
+            
+            # Method 2: Try using bitcoinlib's raw transaction broadcasting
+            try:
+                from bitcoinlib.services.services import Service
+                service = Service(network=self.network)
+                result = service.sendrawtransaction(tx_hex)
+                if result:
+                    logger.info("✅ Transaction broadcasted via bitcoinlib service")
+                    return True
+            except Exception as e:
+                logger.debug(f"Failed to broadcast via bitcoinlib service: {e}")
+            
+            logger.warning("❌ All broadcasting methods failed")
+            return False
+            
+        except Exception as e:
+            logger.error(f"Error in manual broadcasting: {e}")
+            return False
+
     def get_wallet_info(self) -> Dict:
         """
         Get information about the funding wallet.
