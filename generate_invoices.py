@@ -370,18 +370,36 @@ def load_config(config_file: str) -> Dict:
 
 def validate_config(config: Dict) -> bool:
     """Validate configuration file values."""
-    required_fields = ['api_key', 'store_id']
-    for field in required_fields:
-        if field not in config:
-            print(f"Config error: missing required field '{field}'")
-            return False
-    
-    # Validate optional numeric fields
-    numeric_fields = ['count', 'batch_size', 'delay']
-    for field in numeric_fields:
-        if field in config and not isinstance(config[field], (int, float)):
-            print(f"Config error: '{field}' must be a number")
-            return False
+    # Handle universal config format
+    if '_invoice_generation' in config:
+        # Universal config format - check _invoice_generation section
+        invoice_config = config['_invoice_generation']
+        required_fields = ['api_key', 'store_id']
+        for field in required_fields:
+            if field not in invoice_config:
+                print(f"Config error: missing required field '{field}' in _invoice_generation section")
+                return False
+        
+        # Validate optional numeric fields in _invoice_generation section
+        numeric_fields = ['count', 'batch_size', 'delay']
+        for field in numeric_fields:
+            if field in invoice_config and not isinstance(invoice_config[field], (int, float)):
+                print(f"Config error: '{field}' must be a number")
+                return False
+    else:
+        # Legacy config format - check root level
+        required_fields = ['api_key', 'store_id']
+        for field in required_fields:
+            if field not in config:
+                print(f"Config error: missing required field '{field}'")
+                return False
+        
+        # Validate optional numeric fields
+        numeric_fields = ['count', 'batch_size', 'delay']
+        for field in numeric_fields:
+            if field in config and not isinstance(config[field], (int, float)):
+                print(f"Config error: '{field}' must be a number")
+                return False
     
     return True
 
