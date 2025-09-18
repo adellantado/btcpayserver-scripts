@@ -18,6 +18,7 @@ import argparse
 import asyncio
 import json
 import logging
+import os
 import random
 import time
 from datetime import datetime, timedelta
@@ -52,11 +53,12 @@ class BTCPayInvoiceGenerator:
         }
         
         # Setup logging
+        os.makedirs('logs', exist_ok=True)
         logging.basicConfig(
             level=logging.INFO,
             format='%(asctime)s - %(levelname)s - %(message)s',
             handlers=[
-                logging.FileHandler('invoice_generation.log'),
+                logging.FileHandler('logs/invoice_generation.log'),
                 logging.StreamHandler()
             ]
         )

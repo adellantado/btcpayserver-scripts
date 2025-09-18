@@ -11,6 +11,7 @@ Usage:
 """
 
 import json
+import os
 import requests
 import time
 import logging
@@ -19,11 +20,12 @@ from typing import Dict, Optional, Tuple
 from urllib.parse import urljoin
 
 # Configure logging
+os.makedirs('logs', exist_ok=True)
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('btcpay_health_check.log'),
+        logging.FileHandler('logs/btcpay_health_check.log'),
         logging.StreamHandler()
     ]
 )

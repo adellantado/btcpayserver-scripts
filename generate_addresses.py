@@ -37,11 +37,12 @@ except ImportError:
     exit(1)
 
 # Configure logging
+os.makedirs('logs', exist_ok=True)
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('btc_address_generation.log'),
+        logging.FileHandler('logs/btc_address_generation.log'),
         logging.StreamHandler()
     ]
 )

@@ -20,6 +20,7 @@ Usage:
 import argparse
 import json
 import logging
+import os
 import time
 import random
 from datetime import datetime
@@ -40,11 +41,12 @@ except ImportError:
     exit(1)
 
 # Configure logging
+os.makedirs('logs', exist_ok=True)
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('invoice_payment.log'),
+        logging.FileHandler('logs/invoice_payment.log'),
         logging.StreamHandler()
     ]
 )
