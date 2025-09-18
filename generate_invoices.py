@@ -84,11 +84,11 @@ class BTCPayInvoiceGenerator:
         Returns:
             Dictionary containing invoice data
         """
-        # Randomize amounts between $1 and $500
-        amount = round(random.uniform(1.0, 500.0), 2)
+        # amounts $1
+        amount = round(1, 2)
         
         # Randomize currencies (you can adjust this list)
-        currencies = ['USD', 'EUR', 'BTC', 'SAT']
+        currencies = ['USD']
         currency = random.choice(currencies)
         
         # Generate realistic item descriptions
