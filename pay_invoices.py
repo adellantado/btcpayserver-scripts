@@ -245,10 +245,12 @@ class BTCPayInvoicePayment:
                 return None
             
             invoice_data = invoice_data_list[0]
+
+            logger.info(f"Invoice data: {invoice_data}")
             
             # Extract payment information from the response
             payment_info = {
-                'btc_address': invoice_data['checkout']['paymentMethods'][0]['destination'],
+                'btc_address': invoice_data['checkout']['paymentMethods'],
                 'btc_amount': float(invoice_data.get('amount')),
                 'btc_amount_satoshis': int(float(invoice_data.get('amount')) * 100_000_000),
                 'payment_url': invoice_data.get('checkoutLink'),
@@ -259,15 +261,7 @@ class BTCPayInvoicePayment:
                 'currency': invoice_data.get('currency'),
                 'status': invoice_data.get('status'),
                 'additional_status': invoice_data.get('additionalStatus'),
-                'checkout_link': invoice_data.get('checkoutLink'),
-                'created_time': invoice_data.get('createdTime'),
-                'expires_at': invoice_data.get('expirationTime'),
-                'expiration_time': invoice_data.get('expirationTime'),
-                'monitoring_expiration': invoice_data.get('monitoringExpiration'),
-                'archived': invoice_data.get('archived'),
-                'metadata': invoice_data.get('metadata'),
-                'checkout': invoice_data.get('checkout'),
-                'receipt': invoice_data.get('receipt')
+                'checkout_link': invoice_data.get('checkoutLink')
             }
             
             return payment_info
