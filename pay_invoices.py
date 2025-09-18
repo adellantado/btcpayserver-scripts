@@ -72,6 +72,7 @@ class BTCPayInvoicePayment:
         self.invoices = []
         self.payment_results = []
         self.failed_payments = []
+        self.current_address_index = 0  # Track which address to use next
         
         # Statistics tracking
         self.stats = {
@@ -288,7 +289,7 @@ class BTCPayInvoicePayment:
         """
         try:
             # Create wallet from private key
-            private_key = source_address['private_key']
+            private_key = source_address.get('private_key') or source_address.get('wif')
             wallet_name = f"payment_wallet_{int(time.time())}_{random.randint(1000, 9999)}"
             
             try:
@@ -336,7 +337,7 @@ class BTCPayInvoicePayment:
             logger.error(f"Error creating payment transaction: {str(e)}")
             return None
     
-    def pay_invoice(self, invoice: Dict, address_index: int = None) -> Tuple[bool, Dict]:
+    def pay_invoice(self, invoice: Dict, address_index: int = None, test_only: bool = False) -> Tuple[bool, Dict]:
         """
         Pay a single BTCPay invoice using available addresses.
         
@@ -367,11 +368,20 @@ class BTCPayInvoicePayment:
                     return False, {'error': 'Address index out of range'}
                 source_address = self.addresses[address_index]
             else:
-                # Use random address
-                source_address = random.choice(self.addresses)
+                # Use next address in sequence
+                if self.current_address_index >= len(self.addresses):
+                    # Reset to beginning if we've used all addresses
+                    self.current_address_index = 0
+                source_address = self.addresses[self.current_address_index]
+                logger.info(f"Using address {self.current_address_index + 1}/{len(self.addresses)}: {source_address['address']}")
+                self.current_address_index += 1
             
             # Create and send payment
-            tx_id = self.create_payment_transaction(payment_info, source_address)
+            if not test_only:
+                tx_id = self.create_payment_transaction(payment_info, source_address)
+            else:
+                tx_id = None
+                return True, {'transaction_id': tx_id}
             
             if tx_id:
                 result = {
@@ -419,7 +429,7 @@ class BTCPayInvoicePayment:
             
             return False, error_result
     
-    def pay_all_invoices(self, delay: float = 1.0, max_invoices: int = None) -> None:
+    def pay_all_invoices(self, delay: float = 1.0, max_invoices: int = None, test_only: bool = False) -> None:
         """
         Pay all loaded invoices using available addresses.
         
@@ -446,7 +456,7 @@ class BTCPayInvoicePayment:
         
         for i, invoice in enumerate(invoices_to_pay):
             try:
-                success, result = self.pay_invoice(invoice)
+                success, result = self.pay_invoice(invoice, test_only=test_only)
                 
                 if success:
                     logger.info(f"✅ Paid invoice {invoice.get('invoice_id')}: {result.get('transaction_id')}")
@@ -799,15 +809,12 @@ Examples:
         
         print(f"✅ Loaded {len(processor.addresses)} addresses and {len(processor.invoices)} invoices")
         
-        if args.test_only:
-            print("Test completed successfully. Use without --test-only to make payments.")
-            return 0
-        
         # Pay invoices
         print(f"\nStarting payment process...")
         processor.pay_all_invoices(
             delay=args.delay,
-            max_invoices=args.max_invoices
+            max_invoices=args.max_invoices,
+            test_only=args.test_only
         )
         
         # Export results
