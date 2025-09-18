@@ -101,14 +101,27 @@ class BTCPayInvoicePayment:
             
             logger.info(f"Loaded {len(self.addresses)} addresses from {addresses_file}")
             
-            # Validate address format
+            # Validate address format and normalize private key field
             if self.addresses and isinstance(self.addresses[0], dict):
-                required_fields = ['address', 'private_key', 'network']
                 first_addr = self.addresses[0]
+                
+                # Check for required fields
+                required_fields = ['address', 'network']
                 missing_fields = [field for field in required_fields if field not in first_addr]
+                
+                # Check for private key in either 'private_key' or 'wif' field
+                has_private_key = 'private_key' in first_addr or 'wif' in first_addr
+                if not has_private_key:
+                    missing_fields.append('private_key or wif')
+                
                 if missing_fields:
                     logger.error(f"Address file missing required fields: {missing_fields}")
                     return False
+                
+                # Normalize private key field - convert 'wif' to 'private_key' if needed
+                for addr in self.addresses:
+                    if 'wif' in addr and 'private_key' not in addr:
+                        addr['private_key'] = addr['wif']
             
             return True
             
@@ -571,21 +584,40 @@ def validate_config(config: Dict) -> bool:
     Returns:
         bool: True if valid, False otherwise
     """
-    required_fields = ['addresses_file', 'invoices_file']
-    for field in required_fields:
-        if field not in config:
-            logger.error(f"Config error: missing required field '{field}'")
-            return False
+    # Handle universal config format
+    if '_payment_processing' in config:
+        # Universal config format - check _payment_processing section
+        payment_config = config['_payment_processing']
+        required_fields = ['addresses_file', 'invoices_file']
+        for field in required_fields:
+            if field not in payment_config:
+                logger.error(f"Config error: missing required field '{field}' in _payment_processing section")
+                return False
+        
+        # Validate optional numeric fields in _payment_processing section
+        numeric_fields = ['max_invoices', 'delay']
+        for field in numeric_fields:
+            if field in payment_config and not isinstance(payment_config[field], (int, float)):
+                logger.error(f"Config error: '{field}' must be a number")
+                return False
+    else:
+        # Legacy config format - check root level
+        required_fields = ['addresses_file', 'invoices_file']
+        for field in required_fields:
+            if field not in config:
+                logger.error(f"Config error: missing required field '{field}'")
+                return False
+        
+        # Validate optional numeric fields
+        numeric_fields = ['max_invoices', 'delay']
+        for field in numeric_fields:
+            if field in config and not isinstance(config[field], (int, float)):
+                logger.error(f"Config error: '{field}' must be a number")
+                return False
     
-    # Validate optional numeric fields
-    numeric_fields = ['max_invoices', 'delay']
-    for field in numeric_fields:
-        if field in config and not isinstance(config[field], (int, float)):
-            logger.error(f"Config error: '{field}' must be a number")
-            return False
-    
-    # Validate boolean fields
-    if 'mainnet' in config and not isinstance(config['mainnet'], bool):
+    # Validate boolean fields (check both formats)
+    mainnet_config = config.get('_network_settings', {}).get('mainnet') if '_network_settings' in config else config.get('mainnet')
+    if mainnet_config is not None and not isinstance(mainnet_config, bool):
         logger.error("Config error: 'mainnet' must be a boolean")
         return False
     
@@ -629,15 +661,16 @@ def merge_config_with_args(config: Dict, args: argparse.Namespace) -> argparse.N
         if args.output_dir == 'payment_results' and 'output_dir' in payment_config:  # Default value check
             args.output_dir = payment_config['output_dir']
         
-        # BTCPay Server configuration
-        if not args.store_id and 'store_id' in payment_config:
-            args.store_id = payment_config['store_id']
+        # BTCPay Server configuration (from _invoice_generation section)
+        invoice_config = config.get('_invoice_generation', {})
+        if not args.store_id and 'store_id' in invoice_config:
+            args.store_id = invoice_config['store_id']
         
-        if not args.base_url and 'base_url' in payment_config:
-            args.base_url = payment_config['base_url']
+        if not args.base_url and 'base_url' in invoice_config:
+            args.base_url = invoice_config['base_url']
         
-        if not args.api_key and 'api_key' in payment_config:
-            args.api_key = payment_config['api_key']
+        if not args.api_key and 'api_key' in invoice_config:
+            args.api_key = invoice_config['api_key']
     
     else:
         # Legacy config format
