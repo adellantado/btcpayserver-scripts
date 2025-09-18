@@ -224,7 +224,7 @@ class BTCPayInvoicePayment:
                 return None
             
             # Use the correct BTCPay Server API endpoint
-            api_url = f"{base_url.rstrip('/')}/api/v1/stores/{store_id}/invoices/{invoice_id}"
+            api_url = f"{base_url.rstrip('/')}/api/v1/stores/{store_id}/invoices/{invoice_id}/payment-methods"
             
             headers = {
                 'Authorization': f'token {api_key}',
@@ -244,24 +244,19 @@ class BTCPayInvoicePayment:
                 logger.error(f"No invoice data returned for invoice {invoice_id}")
                 return None
             
-            invoice_data = invoice_data_list[0]
+            invoice_data = [paymethod for paymethod in invoice_data_list if paymethod.get('paymentMethodId') == 'BTC-CHAIN'][0]
 
-            logger.info(f"Invoice data: {invoice_data}")
+            logger.info(f"Payment data: {invoice_data}")
             
             # Extract payment information from the response
             payment_info = {
-                'btc_address': invoice_data['checkout']['paymentMethods'],
+                'btc_address': invoice_data['destination'],
                 'btc_amount': float(invoice_data.get('amount')),
                 'btc_amount_satoshis': int(float(invoice_data.get('amount')) * 100_000_000),
-                'payment_url': invoice_data.get('checkoutLink'),
-                'invoice_id': invoice_data.get('id'),
-                'store_id': invoice_data.get('storeId'),
                 'amount': invoice_data.get('amount'),
-                'paid_amount': invoice_data.get('paidAmount'),
+                'paid_amount': invoice_data.get('totalPaid'),
                 'currency': invoice_data.get('currency'),
-                'status': invoice_data.get('status'),
-                'additional_status': invoice_data.get('additionalStatus'),
-                'checkout_link': invoice_data.get('checkoutLink')
+                'status': invoice_data.get('status', 'New'),
             }
             
             return payment_info
