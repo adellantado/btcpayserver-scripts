@@ -1,8 +1,0 @@
-{"permissions": ["btcpay.store.canviewinvoices", "btcpay.store.cancreateinvoice", "btcpay.store.canmodifyinvoices", "btcpay.store.webhooks.canmodifywebhooks", "btcpay.server.canmodifyserversettings", "btcpay.store.canmodifystoresettings", "btcpay.store.canviewstoresettings", "btcpay.store.canviewreports", "btcpay.store.canviewpaymentrequests", "btcpay.store.canmodifypaymentrequests", "btcpay.user.canmodifyprofile", "btcpay.user.canviewprofile", "btcpay.server.canviewusers", "btcpay.server.cancreateuser", "btcpay.user.candeleteuser", "btcpay.user.canmanagenotificationsforuser", "btcpay.user.canviewnotificationsforuser", "unrestricted", "btcpay.server.canuseinternallightningnode", "btcpay.server.canviewlightninginvoiceinternalnode", "btcpay.server.cancreatelightninginvoiceinternalnode", "btcpay.store.canuselightningnode", "btcpay.store.canviewlightninginvoice", "btcpay.store.cancreatelightninginvoice", "btcpay.store.canmanagepullpayments", "btcpay.store.canarchivepullpayments", "btcpay.store.cancreatepullpayments", "btcpay.store.canviewpullpayments", "btcpay.store.cancreatenonapprovedpullpayments", "btcpay.server.canmanageusers", "btcpay.store.canmanagepayouts", "btcpay.store.canviewpayouts"], "applicationAuthority": null, "applicationIdentifier": null}
-
-2e05319d78fdb120c5fc43a0a0296a3b03d09cec
-ab12a395-ca01-470a-9d54-b7a797879a2c
-
-52e80e0a-214c-494e-aeb7-bef1f417cdc0
-AQAAAAIAAYagAAAAECbYpIcCwrmZ0B/U/pkcOcYhmuyxAA8hn1u9/PtRZGFeujr+8R22nNCLw1baQHaDvw==
-AXAGZKPRMH54YA2NUMHFDSSZQ7QF322A
