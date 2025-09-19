@@ -223,11 +223,16 @@ class BTCAddressGenerator:
             
             for i in range(start_index, start_index+count):
                 try:
+                    # Convert private key bytes to hex string if needed
+                    private_key = keys[i-1].key_private
+                    if isinstance(private_key, bytes):
+                        private_key = private_key.hex()
+                    
                     # Get address information
                     address_info = {
                         'index': i,
                         'address': keys[i-1].address,
-                        'private_key': keys[i-1].key_private,
+                        'private_key': private_key,
                         'wif': keys[i-1].wif,
                         'network': self.network
                     }
@@ -504,12 +509,17 @@ class BTCAddressGenerator:
             # Get the main key from the wallet
             main_key = self.funding_wallet.main_key
             
+            # Convert private key bytes to hex string if needed
+            private_key = main_key.key_private if main_key else None
+            if isinstance(private_key, bytes):
+                private_key = private_key.hex()
+            
             info = {
                 'wallet_name': self.funding_wallet.name,
                 'network': self.network,
                 'balance': self.get_wallet_balance(),
                 'main_address': self.funding_wallet.get_key(0).address,
-                'private_key': main_key.key_private if main_key else None,
+                'private_key': private_key,
                 'public_key': main_key.key_public if main_key else None,
                 'wif': main_key.wif if main_key else None,
             }
