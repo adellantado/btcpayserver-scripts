@@ -75,6 +75,7 @@ class BTCPayInvoicePayment:
         self.payment_results = []
         self.failed_payments = []
         self.current_address_index = 0  # Track which address to use next
+        self.funding_wallet = None
         
         # Statistics tracking
         self.stats = {
@@ -87,6 +88,33 @@ class BTCPayInvoicePayment:
         }
         
         logger.info(f"Initialized BTCPayInvoicePayment for {self.network}")
+    
+    def recreate_funding_wallet(self) -> None:
+        """
+        Recreate the funding wallet for payments.
+        This method creates a new funding wallet that can be used for transactions.
+        """
+        try:
+            # Delete existing funding wallet if it exists
+            if self.funding_wallet:
+                try:
+                    self.funding_wallet.delete()
+                    logger.info("Deleted existing funding wallet")
+                except Exception as e:
+                    logger.warning(f"Could not delete existing funding wallet: {e}")
+            
+            
+            wallet_name = "wallet_1"
+            # Try to load existing wallet
+            
+            self.funding_wallet = Wallet(wallet_name)
+            
+            logger.info(f"Created new funding wallet: {wallet_name}")
+            logger.info(f"Funding wallet address: {self.funding_wallet.addresslist()[0]}")
+            
+        except Exception as e:
+            logger.error(f"Error recreating funding wallet: {str(e)}")
+            self.funding_wallet = None
     
     def load_addresses(self, addresses_file: str) -> bool:
         """
@@ -282,18 +310,32 @@ class BTCPayInvoicePayment:
             # Create wallet from private key
             private_key = source_address.get('private_key') or source_address.get('wif')
             wallet_name = f"payment_wallet_{int(time.time())}_{random.randint(1000, 9999)}"
-            
+            tx = None
             try:
-                # Create temporary wallet for this payment
-                wallet = Wallet.create(
-                    wallet_name,
-                    keys=private_key,
-                    network=self.network,
-                    witness_type='segwit'
-                )
-                
-                # Check wallet balance
-                # balance = wallet.balance()
+                check_utxos = False
+                if not self.funding_wallet:
+                    # Create temporary wallet for this payment
+                    wallet = Wallet.create(
+                        wallet_name,
+                        keys=private_key,
+                        network=self.network,
+                        witness_type='segwit'
+                    )
+                    check_utxos = True
+                    if wallet.get_key(0).address != source_address['address']:
+                        logger.error(f"Address mismatch: {wallet.get_key(0).address} != {source_address['address']}")
+                        self.recreate_funding_wallet()
+                        check_utxos = True
+                        logger.info(f"Recreated funding wallet")
+                        wallet = self.funding_wallet
+                        balance = self.get_wallet_balance(wallet)
+                else:
+                    wallet = self.funding_wallet
+                    check_utxos = False
+
+                if not self.funding_wallet:
+                    # Check wallet balance
+                    balance = self.get_wallet_balance(wallet)
                 required_amount = payment_info['btc_amount_satoshis']
                 fee_estimate = 10000  # 0.0001 BTC fee estimate
                 
@@ -303,28 +345,29 @@ class BTCPayInvoicePayment:
                 #     return None
                 
                 # Validate UTXOs before attempting transactions
-                logger.info("Validating wallet UTXOs...")
-                try:
-                    utxos = wallet.utxos()
-                    if not utxos:
-                        logger.error("No UTXOs available for spending. Wallet may not be properly synchronized.")
-                        logger.info("Attempting to force wallet synchronization...")
-                        try:
-                            wallet.utxos_update()
-                            utxos = wallet.utxos()
-                            if not utxos:
-                                logger.error("Failed to synchronize UTXOs. Cannot create transactions.")
+                if check_utxos:
+                    logger.info("Validating wallet UTXOs...")
+                    try:
+                        utxos = wallet.utxos()
+                        if not utxos:
+                            logger.error("No UTXOs available for spending. Wallet may not be properly synchronized.")
+                            logger.info("Attempting to force wallet synchronization...")
+                            try:
+                                wallet.utxos_update()
+                                utxos = wallet.utxos()
+                                if not utxos:
+                                    logger.error("Failed to synchronize UTXOs. Cannot create transactions.")
+                                    return None
+                                else:
+                                    logger.info(f"Successfully synchronized {len(utxos)} UTXOs")
+                            except Exception as sync_error:
+                                logger.error(f"Failed to synchronize wallet: {sync_error}")
                                 return None
-                            else:
-                                logger.info(f"Successfully synchronized {len(utxos)} UTXOs")
-                        except Exception as sync_error:
-                            logger.error(f"Failed to synchronize wallet: {sync_error}")
-                            return None
-                    else:
-                        logger.info(f"Found {len(utxos)} UTXOs available for spending")
-                except Exception as e:
-                    logger.error(f"Error validating UTXOs: {e}")
-                    return None
+                        else:
+                            logger.info(f"Found {len(utxos)} UTXOs available for spending")
+                    except Exception as e:
+                        logger.error(f"Error validating UTXOs: {e}")
+                        return None
 
                 # Create transaction
                 destination = payment_info['btc_address']
@@ -332,7 +375,10 @@ class BTCPayInvoicePayment:
                 logger.info(f"Sending {required_amount} satoshis to {destination}")
                 
                 # Send transaction
-                tx = wallet.send([(destination, required_amount)], fee=fee_estimate)
+                if not self.funding_wallet:
+                    tx = wallet.send([(destination, required_amount)], fee=fee_estimate)
+                else:
+                    tx = self.funding_wallet.send([(destination, required_amount)], input_key_id=source_address['key_id'], fee=fee_estimate)
                 
                 if tx and tx.txid:
                     # Verify transaction was actually created and broadcasted
@@ -382,15 +428,64 @@ class BTCPayInvoicePayment:
             finally:
                 # Clean up temporary wallet
                 try:
-                    wallet.delete()
+                    if not self.funding_wallet:
+                        wallet.delete()
                 except:
                     pass
-                return tx.txid if tx and tx.txid else None
+                if tx and tx.txid:
+                    return tx.txid
+                else:
+                    return None
                     
         except Exception as e:
             logger.error(f"Error creating payment transaction: {str(e)}")
             return None
     
+    def get_wallet_balance(self, wallet: Wallet) -> int:
+        """
+        Get the current balance of the wallet.
+        
+        Returns:
+            int: Balance in satoshis
+        """
+        
+        try:
+            # First try the wallet's internal balance
+            balance = wallet.balance()
+            
+            # If balance is 0, try to get it from the service provider directly
+            if balance == 0:
+                logger.info(f"Wallet internal balance is 0, trying to get it from the service provider")
+                try:
+                    from bitcoinlib.services.services import Service
+                    service = Service(network=self.network)
+                    main_address = wallet.addresslist()[0]
+                    logger.info(f"Getting balance from service for address: {main_address}")
+                    service_balance = service.getbalance(main_address)
+                    if service_balance > 0:
+                        logger.info(f"Wallet internal balance is 0, but service shows {service_balance} satoshis. Updating wallet...")
+                        # Try to update the wallet's UTXOs
+                        try:
+                            wallet.utxos_update()
+                            # Check balance again after update
+                            balance = wallet.balance()
+                            if balance > 0:
+                                logger.info(f"Wallet update successful, balance now: {balance} satoshis")
+                                return balance
+                        except Exception as update_error:
+                            logger.warning(f"Wallet UTXO update failed: {update_error}")
+                        
+                        # If wallet update failed, use service balance directly
+                        logger.info(f"Using service balance directly: {service_balance} satoshis")
+                        return service_balance
+                except Exception as service_error:
+                    logger.warning(f"Could not get balance from service: {service_error}")
+            
+            return balance
+        except Exception as e:
+            logger.error(f"Error getting wallet balance: {str(e)}")
+            return 0
+
     def manual_broadcast_transaction(self, tx_hex: str) -> bool:
         """
         Manually broadcast a transaction using alternative methods.

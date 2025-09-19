@@ -234,6 +234,7 @@ class BTCAddressGenerator:
                         'address': keys[i-1].address,
                         'private_key': private_key,
                         'wif': keys[i-1].wif,
+                        'key_id': keys[i-1].key_id,
                         'network': self.network
                     }
                     
@@ -867,6 +868,7 @@ Examples:
                 start_index=args.start_index,
                 count=args.count
             )
+            # print(f"Addresses: {generator.funding_wallet.addresslist()}")
         else:
             # Generate new addresses (original mode)
             addresses = generator.generate_addresses(args.count)
