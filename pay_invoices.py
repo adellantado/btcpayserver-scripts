@@ -337,7 +337,7 @@ class BTCPayInvoicePayment:
                     # Check wallet balance
                     balance = self.get_wallet_balance(wallet)
                 required_amount = payment_info['btc_amount_satoshis']
-                fee_estimate = 10000  # 0.0001 BTC fee estimate
+                fee_estimate = 1000  # 0.00001 BTC fee estimate
                 
                 # if balance < (required_amount + fee_estimate):
                 #     logger.error(f"Insufficient balance in address {source_address['address']}: "
@@ -378,6 +378,10 @@ class BTCPayInvoicePayment:
                 if not self.funding_wallet:
                     tx = wallet.send([(destination, required_amount)], fee=fee_estimate)
                 else:
+                    from bitcoinlib.services.services import Service
+                    service = Service(network=self.network)
+                    service_balance = service.getbalance(source_address['address'])
+                    self.funding_wallet.utxos_update()
                     tx = self.funding_wallet.send([(destination, required_amount)], input_key_id=source_address['key_id'], fee=fee_estimate)
                 
                 if tx and tx.txid:
