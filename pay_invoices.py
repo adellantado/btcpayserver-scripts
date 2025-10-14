@@ -338,7 +338,10 @@ class BTCPayInvoicePayment:
                     # Check wallet balance
                     balance = self.get_wallet_balance(wallet)
                 required_amount = payment_info['btc_amount_satoshis']
-                fee_estimate = 1000  # 0.00001 BTC fee estimate
+                # Get fee estimate from config or use default
+                fee_estimate = 1000  # Default fee estimate
+                if self.config and '_payment_processing' in self.config and 'max_fee' in self.config['_payment_processing']:
+                    fee_estimate = int(self.config['_payment_processing']['max_fee'] * 100_000_000)  # Convert BTC to satoshis
                 
                 # if balance < (required_amount + fee_estimate):
                 #     logger.error(f"Insufficient balance in address {source_address['address']}: "
@@ -383,7 +386,7 @@ class BTCPayInvoicePayment:
                     service = Service(network=self.network)
                     service_balance = service.getbalance(source_address['address'])
                     self.funding_wallet.utxos_update()
-                    tx = self.funding_wallet.send([(destination, required_amount)], input_key_id=source_address['key_id'], fee=fee_estimate, broadcast=True)
+                    tx = self.funding_wallet.send([(destination, required_amount)], input_key_id=source_address['key_id'], fee=fee_estimate, broadcast=False)
                 
                 if tx and tx.txid:
                     # Verify transaction was actually created and broadcasted
