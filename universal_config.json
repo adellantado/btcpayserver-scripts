@@ -4,6 +4,7 @@
   
   "_network_settings": {
     "mainnet": false,
+    "rpc_command": "docker exec -it btcpayserver_bitcoind bitcoin-cli -datadir=\"/data\" sendrawtransaction {hexstring}",
     "_description": "Set to true for Bitcoin mainnet (real money), false for testnet (testing only)"
   },
   
@@ -36,6 +37,7 @@
     "invoices_file": "invoice_results/successful_invoices_*.json",
     "delay": 1.0,
     "max_invoices": null,
+    "max_fee": 0.0001,
     "output_dir": "payment_results",
     "_description": "Settings for pay_invoices.py script"
   },
