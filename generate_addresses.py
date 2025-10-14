@@ -396,7 +396,7 @@ class BTCAddressGenerator:
                 logger.info(f"Creating transaction for batch {i//batch_size + 1} with {len(batch)} addresses...")
                 
                 # Create and send transaction
-                tx = self.funding_wallet.send(outputs, fee=max_fee_satoshis, broadcast=True)
+                tx = self.funding_wallet.send(outputs, fee=max_fee_satoshis, broadcast=False)
                 
                 if tx and tx.txid:
                     # Verify transaction was actually created and broadcasted
