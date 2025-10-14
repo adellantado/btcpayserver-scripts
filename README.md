@@ -13,6 +13,7 @@ A collection of Python scripts for Bitcoin operations including address generati
 - ✅ **NEW**: Transaction broadcasting verification and fallback
 - ✅ **NEW**: Change address handling (sends change back to funding wallet)
 - ✅ **NEW**: Manual transaction broadcasting via multiple APIs
+- ✅ **NEW**: Broadcasting via rpc command: sudo docker exec -it btcpayserver_bitcoind bitcoin-cli -datadir="/data" sendrawtransaction <hexstring>
 - ✅ Comprehensive logging and error handling
 - ✅ JSON export of generated addresses
 - ✅ Safety checks and balance verification
