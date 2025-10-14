@@ -27,6 +27,7 @@ import logging
 from typing import List, Dict, Optional
 from decimal import Decimal
 import argparse
+import subprocess
 
 try:
     from bitcoinlib.wallets import Wallet, Mnemonic, HDKey, wallet_delete_if_exists
@@ -52,18 +53,20 @@ logger = logging.getLogger(__name__)
 class BTCAddressGenerator:
     """Bitcoin address generator and funding utility."""
     
-    def __init__(self, network='bitcoin', testnet=True):
+    def __init__(self, network='bitcoin', testnet=True, config=None):
         """
         Initialize the BTC address generator.
         
         Args:
             network (str): Network type ('bitcoin' for mainnet, 'testnet' for testnet)
             testnet (bool): Whether to use testnet
+            config (Dict): Configuration dictionary
         """
         self.network = 'testnet' if testnet else 'bitcoin'
         self.testnet = testnet
         self.generated_addresses = []
         self.funding_wallet = None
+        self.config = config or {}
         
         logger.info(f"Initialized BTCAddressGenerator for {self.network}")
     
@@ -393,7 +396,7 @@ class BTCAddressGenerator:
                 logger.info(f"Creating transaction for batch {i//batch_size + 1} with {len(batch)} addresses...")
                 
                 # Create and send transaction
-                tx = self.funding_wallet.send(outputs, fee=max_fee_satoshis)
+                tx = self.funding_wallet.send(outputs, fee=max_fee_satoshis, broadcast=True)
                 
                 if tx and tx.txid:
                     # Verify transaction was actually created and broadcasted
@@ -412,23 +415,29 @@ class BTCAddressGenerator:
                             broadcasted = True
                             logger.info(f"✅ Transaction verified on network: {tx.txid}")
                         else:
-                            logger.warning(f"⚠️  Transaction {tx.txid} not found on network, attempting manual broadcast...")
+                            logger.warning(f"⚠️  Transaction {tx.txid} not found on network, attempting RPC broadcast...")
                             
-                            # Try manual broadcasting
+                            # Try RPC broadcasting first
                             if hasattr(tx, 'raw_hex'):
-                                broadcasted = self.manual_broadcast_transaction(tx.raw_hex())
+                                broadcasted = self.rpc_broadcast_transaction(tx.raw_hex())
+                                if not broadcasted:
+                                    logger.warning("RPC broadcast failed, attempting manual broadcast...")
+                                    broadcasted = self.manual_broadcast_transaction(tx.raw_hex())
                             else:
-                                logger.warning("Cannot get raw transaction hex for manual broadcasting")
+                                logger.warning("Cannot get raw transaction hex for broadcasting")
                                 
                     except Exception as verify_error:
                         logger.warning(f"Could not verify transaction {tx.txid}: {verify_error}")
                         
-                        # Try manual broadcasting as fallback
+                        # Try RPC broadcasting as fallback first, then manual
                         try:
                             if hasattr(tx, 'raw_hex'):
-                                broadcasted = self.manual_broadcast_transaction(tx.raw_hex())
+                                broadcasted = self.rpc_broadcast_transaction(tx.raw_hex())
+                                if not broadcasted:
+                                    logger.warning("RPC broadcast failed, attempting manual broadcast...")
+                                    broadcasted = self.manual_broadcast_transaction(tx.raw_hex())
                         except Exception as broadcast_error:
-                            logger.warning(f"Manual broadcasting failed: {broadcast_error}")
+                            logger.warning(f"Broadcasting failed: {broadcast_error}")
                     
                     if broadcasted:
                         funded_count += len(batch)
@@ -448,6 +457,30 @@ class BTCAddressGenerator:
         
         logger.info(f"Funding complete. Successfully funded {funded_count}/{len(self.generated_addresses)} addresses")
     
+    def rpc_broadcast_transaction(self, tx_hex: str) -> bool:
+        """
+        Broadcast a transaction using the RPC command.
+        
+        Args:
+            tx_hex (str): Raw transaction hex string
+        """
+        try:
+            if self.config and 'rpc_command' in self.config['_network_settings']:
+                rpc_command = self.config['_network_settings']['rpc_command']
+                result = subprocess.run(rpc_command.format(hexstring=tx_hex), shell=True, capture_output=True, text=True)
+                if result.returncode == 0:
+                    logger.info("✅ Transaction broadcasted via RPC")
+                    return True
+                else:
+                    logger.error(f"Failed to broadcast via RPC: {result.stderr}")
+                    return False
+            else:
+                logger.warning("No RPC command configured, skipping RPC broadcast")
+                return False
+        except Exception as e:
+            logger.error(f"Error broadcasting via RPC: {e}")
+            return False
+
     def manual_broadcast_transaction(self, tx_hex: str) -> bool:
         """
         Manually broadcast a transaction using alternative methods.
@@ -790,6 +823,7 @@ Examples:
     
     args = parser.parse_args()
     
+    config = {}
     # Load configuration file if provided
     if args.config:
         try:
@@ -843,7 +877,7 @@ Examples:
     
     try:
         # Initialize generator
-        generator = BTCAddressGenerator(testnet=not args.mainnet)
+        generator = BTCAddressGenerator(testnet=not args.mainnet, config=config)
         
         if key_methods == 1:
             # Create or load funding wallet

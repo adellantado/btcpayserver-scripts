@@ -27,7 +27,7 @@ from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 from pathlib import Path
 from decimal import Decimal
-
+import subprocess
 import requests
 from tqdm import tqdm
 
@@ -56,7 +56,7 @@ logger = logging.getLogger(__name__)
 class BTCPayInvoicePayment:
     """BTCPay Server invoice payment processor using generated Bitcoin addresses."""
     
-    def __init__(self, network='testnet', store_id=None, base_url=None, api_key=None):
+    def __init__(self, network='testnet', store_id=None, base_url=None, api_key=None, config=None):
         """
         Initialize the invoice payment processor.
         
@@ -76,6 +76,7 @@ class BTCPayInvoicePayment:
         self.failed_payments = []
         self.current_address_index = 0  # Track which address to use next
         self.funding_wallet = None
+        self.config = config or {}
         
         # Statistics tracking
         self.stats = {
@@ -382,7 +383,7 @@ class BTCPayInvoicePayment:
                     service = Service(network=self.network)
                     service_balance = service.getbalance(source_address['address'])
                     self.funding_wallet.utxos_update()
-                    tx = self.funding_wallet.send([(destination, required_amount)], input_key_id=source_address['key_id'], fee=fee_estimate)
+                    tx = self.funding_wallet.send([(destination, required_amount)], input_key_id=source_address['key_id'], fee=fee_estimate, broadcast=True)
                 
                 if tx and tx.txid:
                     # Verify transaction was actually created and broadcasted
@@ -401,23 +402,29 @@ class BTCPayInvoicePayment:
                             broadcasted = True
                             logger.info(f"✅ Transaction verified on network: {tx.txid}")
                         else:
-                            logger.warning(f"⚠️  Transaction {tx.txid} not found on network, attempting manual broadcast...")
+                            logger.warning(f"⚠️  Transaction {tx.txid} not found on network, attempting RPC broadcast...")
                             
-                            # Try manual broadcasting
+                            # Try RPC broadcasting as fallback first, then manual
                             if hasattr(tx, 'raw_hex'):
-                                broadcasted = self.manual_broadcast_transaction(tx.raw_hex())
+                                broadcasted = self.rpc_broadcast_transaction(tx.raw_hex())
+                                if not broadcasted:
+                                    logger.warning("RPC broadcast failed, attempting manual broadcast...")
+                                    broadcasted = self.manual_broadcast_transaction(tx.raw_hex())
                             else:
-                                logger.warning("Cannot get raw transaction hex for manual broadcasting")
+                                logger.warning("Cannot get raw transaction hex for broadcasting")
                                 
                     except Exception as verify_error:
                         logger.warning(f"Could not verify transaction {tx.txid}: {verify_error}")
                         
-                        # Try manual broadcasting as fallback
+                        # Try RPC broadcasting as fallback first, then manual
                         try:
                             if hasattr(tx, 'raw_hex'):
-                                broadcasted = self.manual_broadcast_transaction(tx.raw_hex())
+                                broadcasted = self.rpc_broadcast_transaction(tx.raw_hex())
+                                if not broadcasted:
+                                    logger.warning("RPC broadcast failed, attempting manual broadcast...")
+                                    broadcasted = self.manual_broadcast_transaction(tx.raw_hex())
                         except Exception as broadcast_error:
-                            logger.warning(f"Manual broadcasting failed: {broadcast_error}")
+                            logger.warning(f"Broadcasting failed: {broadcast_error}")
                     
                     if broadcasted:
                         logger.info(f"✅ Transaction broadcasted: {tx.txid}")
@@ -489,6 +496,30 @@ class BTCPayInvoicePayment:
         except Exception as e:
             logger.error(f"Error getting wallet balance: {str(e)}")
             return 0
+
+    def rpc_broadcast_transaction(self, tx_hex: str) -> bool:
+        """
+        Broadcast a transaction using the RPC command.
+        
+        Args:
+            tx_hex (str): Raw transaction hex string
+        """
+        try:
+            if self.config and 'rpc_command' in self.config['_network_settings']:
+                rpc_command = self.config['_network_settings']['rpc_command']
+                result = subprocess.run(rpc_command.format(hexstring=tx_hex), shell=True, capture_output=True, text=True)
+                if result.returncode == 0:
+                    logger.info("✅ Transaction broadcasted via RPC")
+                    return True
+                else:
+                    logger.error(f"Failed to broadcast via RPC: {result.stderr}")
+                    return False
+            else:
+                logger.warning("No RPC command configured, skipping RPC broadcast")
+                return False
+        except Exception as e:
+            logger.error(f"Error broadcasting via RPC: {e}")
+            return False
 
     def manual_broadcast_transaction(self, tx_hex: str) -> bool:
         """
@@ -943,6 +974,7 @@ Examples:
     
     args = parser.parse_args()
     
+    config = {}
     # Load configuration file if provided
     if args.config:
         try:
@@ -994,7 +1026,8 @@ Examples:
             network=network,
             store_id=args.store_id,
             base_url=args.base_url,
-            api_key=args.api_key
+            api_key=args.api_key,
+            config=config
         )
         
         # Load addresses and invoices
