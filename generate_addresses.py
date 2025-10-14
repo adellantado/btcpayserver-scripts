@@ -417,6 +417,8 @@ class BTCAddressGenerator:
                         else:
                             logger.warning(f"⚠️  Transaction {tx.txid} not found on network, attempting RPC broadcast...")
                             
+                            logger.info("Tx hex:" + tx.raw_hex())
+
                             # Try RPC broadcasting first
                             if hasattr(tx, 'raw_hex'):
                                 broadcasted = self.rpc_broadcast_transaction(tx.raw_hex())
