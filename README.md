@@ -54,6 +54,16 @@ A collection of Python scripts for Bitcoin operations including address generati
 - ✅ **NEW**: Validate store configuration and permissions
 - ✅ **NEW**: Centralized logging to `logs/` directory
 
+### 5. Database Payments Table Populator (`populate_tables.py`)
+- ✅ **NEW**: Populate PostgreSQL Payments table with fake payment data
+- ✅ **NEW**: Generate realistic payment records with all required fields
+- ✅ **NEW**: Batch processing for high-performance database operations
+- ✅ **NEW**: Automatic table creation if it doesn't exist
+- ✅ **NEW**: Comprehensive logging and progress tracking
+- ✅ **NEW**: Export results to JSON files for verification
+- ✅ **NEW**: Universal config format support
+- ✅ **NEW**: Centralized logging to `logs/` directory
+
 ## Quick Start Workflow
 
 The scripts are designed to work together in a complete Bitcoin payment testing workflow:
@@ -67,6 +77,7 @@ Use a single configuration file for all scripts:
 python generate_addresses.py --config universal_config.json
 python generate_invoices.py --config universal_config.json
 python pay_invoices.py --config universal_config.json
+python populate_tables.py --config universal_config.json
 ```
 
 ### Option 2: Individual Config Files
@@ -261,6 +272,75 @@ python test_btcpay_health.py --api-key YOUR_API_KEY --store-id YOUR_STORE_ID --b
 - `--store-id`: BTCPay Server store ID (required)
 - `--base-url`: BTCPay Server base URL (required)
 
+### Database Payments Table Populator
+
+#### Basic Usage
+```bash
+python populate_tables.py --host localhost --database btcpay_db --user postgres --password your_password --count 1000
+```
+
+#### Configuration File Usage
+```bash
+python populate_tables.py --config universal_config.json
+```
+
+#### Test Database Connection Only
+```bash
+python populate_tables.py --host localhost --database btcpay_db --user postgres --password your_password --test-only
+```
+
+#### Advanced Options
+```bash
+# Generate 500 payments with custom batch size
+python populate_tables.py \
+  --host localhost \
+  --database btcpay_db \
+  --user postgres \
+  --password your_password \
+  --count 500 \
+  --batch-size 50
+
+# Custom output directory
+python populate_tables.py \
+  --host localhost \
+  --database btcpay_db \
+  --user postgres \
+  --password your_password \
+  --count 1000 \
+  --output-dir my_payment_results
+```
+
+#### Database Setup Requirements
+
+1. **PostgreSQL Database**: Ensure PostgreSQL is installed and running
+2. **Database Access**: User must have CREATE TABLE and INSERT permissions
+3. **Connection Details**: Host, database name, username, and password
+
+#### Payments Table Structure
+The script creates a `payments` table with the following structure:
+- `Id`: text (Primary Key)
+- `Blob`: bytea (Binary payment data)
+- `InvoiceDataId`: text (Reference to invoice)
+- `Accounted`: boolean (Payment accounted status)
+- `Blob2`: jsonb (Payment metadata as JSON)
+- `PaymentMethodId`: text (Payment method used)
+- `Amount`: numeric (Payment amount)
+- `Create`: timestamp with time zone (Creation timestamp)
+- `Currency`: text (Payment currency)
+- `Status`: text (Payment status)
+
+#### Command Line Options (Database Populator)
+- `--config FILE`: Configuration file path (JSON format)
+- `--host HOST`: Database host (required)
+- `--database DB`: Database name (required)
+- `--user USER`: Database username (required)
+- `--password PASS`: Database password (required)
+- `--port PORT`: Database port (default: 5432)
+- `--count COUNT`: Number of payments to generate (default: 1000)
+- `--batch-size SIZE`: Number of payments per batch (default: 100)
+- `--output-dir DIR`: Output directory for results (default: payment_results)
+- `--test-only`: Test connection without populating table
+
 ## ⚠️ Important Security Notes
 
 1. **Mainnet Warning**: The script operates on real Bitcoin when not using `--testnet`. Double-check before running on mainnet.
@@ -328,6 +408,9 @@ python generate_invoices.py --config universal_config.json
 
 # 4. Pay invoices with config
 python pay_invoices.py --config universal_config.json
+
+# 5. Populate database with fake payments
+python populate_tables.py --config universal_config.json
 ```
 
 ## Output Files
@@ -351,6 +434,12 @@ python pay_invoices.py --config universal_config.json
 
 ### Health Check
 - `logs/btcpay_health_check.log`: Detailed log file
+
+### Database Populator
+- `successful_payments_[timestamp].json`: Successfully inserted payments
+- `failed_payments_[timestamp].json`: Failed payment insertions
+- `population_summary_[timestamp].json`: Population statistics
+- `logs/payments_population.log`: Detailed log file
 
 ## Logging System
 
@@ -416,6 +505,7 @@ Check the appropriate log file in the `logs/` directory for detailed error messa
 - `logs/invoice_generation.log` - Invoice generation operations  
 - `logs/invoice_payment.log` - Payment processing operations
 - `logs/btcpay_health_check.log` - BTCPay Server health checks
+- `logs/payments_population.log` - Database population operations
 
 ## License
 

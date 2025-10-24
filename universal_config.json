@@ -42,6 +42,18 @@
     "_description": "Settings for pay_invoices.py script"
   },
   
+  "_payments_population": {
+    "host": "localhost",
+    "database": "btcpay_db",
+    "user": "postgres",
+    "password": "your_password_here",
+    "port": 5432,
+    "count": 1000,
+    "batch_size": 100,
+    "output_dir": "payment_results",
+    "_description": "Settings for populate_tables.py script - database connection and population settings"
+  },
+  
   "_key_import_options": {
     "_note": "Use only ONE of the following key import options for address generation:",
     "private_key": "",
@@ -68,7 +80,12 @@
     "invoices_file": "string - Path to invoices file (supports wildcards)",
     "max_invoices": "integer - Maximum invoices to pay (null for all)",
     "derivation_mode": "boolean - Generate addresses from existing wallet using derivation path",
-    "start_index": "integer - Starting index for derivation path address generation"
+    "start_index": "integer - Starting index for derivation path address generation",
+    "host": "string - Database host (PostgreSQL)",
+    "database": "string - Database name",
+    "user": "string - Database username",
+    "password": "string - Database password",
+    "port": "integer - Database port (default: 5432)"
   },
   
   "_usage_examples": [
@@ -84,8 +101,11 @@
     "# Pay invoices",
     "python pay_invoices.py --config universal_config.json",
     "",
+    "# Populate Payments table with fake data",
+    "python populate_tables.py --config universal_config.json",
+    "",
     "# Complete workflow",
-    "python generate_addresses.py --config universal_config.json && python generate_invoices.py --config universal_config.json && python pay_invoices.py --config universal_config.json"
+    "python generate_addresses.py --config universal_config.json && python generate_invoices.py --config universal_config.json && python pay_invoices.py --config universal_config.json && python populate_tables.py --config universal_config.json"
   ],
   
   "_workflow_note": "This config enables a complete Bitcoin payment testing workflow with consistent settings across all scripts"
