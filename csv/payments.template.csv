@@ -1,0 +1,2 @@
+Id,Blob,InvoiceDataId,Accounted,Blob2,PaymentMethodId,Amount,Created,Currency,Status
+34Dlghek3h58FT3ndfkweh,,jedJhdk348Nkek3,,{"details":{"keyPath": "0/23"}},BTC-CHAIN,0.0001,2025-08-28 09:14:47.000-0400,BTC,Settled
