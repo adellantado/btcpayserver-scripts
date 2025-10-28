@@ -90,30 +90,13 @@ class PaymentsTablePopulator:
         """
         # Generate unique ID
         payment_id = str(uuid.uuid4())
-        
         # Generate invoice data ID (simulate reference to invoice)
         invoice_data_id = f"INV-{datetime.now().strftime('%Y%m%d')}-{index:06d}"
-        
-        # Random amounts between $0.50 and $100.00
-        amount = round(random.uniform(0.50, 100.00), 2)
-        
-        # Random currencies
-        currencies = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'JPY']
-        currency = random.choice(currencies)
-        
-        # Random payment methods
-        payment_methods = [
-            'BTC', 'LTC', 'BCH', 'ETH', 'XMR', 'DASH', 'ZEC',
-            'Credit Card', 'PayPal', 'Bank Transfer', 'Stripe'
-        ]
-        payment_method_id = random.choice(payment_methods)
-        
-        # Random statuses
-        statuses = ['New', 'Processing', 'Settled', 'Invalid', 'Expired', 'Paid']
-        status = random.choice(statuses)
-        
-        # Random accounted status (mostly true for settled payments)
-        accounted = status in ['Settled', 'Paid'] and random.random() > 0.1
+        amount = 1.00
+        currency = 'USD'
+        payment_method_id = 'BTC-CHAIN'
+        status = 'Settled'
+        accounted =''
         
         # Generate random creation time (last 30 days)
         days_ago = random.randint(0, 30)
@@ -132,11 +115,11 @@ class PaymentsTablePopulator:
             'block_height': random.randint(800000, 900000) if payment_method_id in ['BTC', 'LTC', 'BCH'] else None,
             'confirmations': random.randint(1, 6) if payment_method_id in ['BTC', 'LTC', 'BCH'] else None,
             'network_fee': round(random.uniform(0.0001, 0.01), 6) if payment_method_id in ['BTC', 'LTC', 'BCH'] else None,
-            'payment_provider': 'BTCPay Server' if payment_method_id in ['BTC', 'LTC', 'BCH'] else 'Stripe',
+            'payment_provider': 'BTCPay Server',
             'customer_info': {
                 'email': f'customer{index:06d}@example.com',
                 'name': f'Customer {index:06d}',
-                'country': random.choice(['US', 'CA', 'GB', 'DE', 'FR', 'AU', 'JP'])
+                'country': 'US'
             }
         }
         

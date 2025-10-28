@@ -12,3 +12,6 @@ wheels/
 todo
 
 *.log
+
+# Copies of files
+*.copy
