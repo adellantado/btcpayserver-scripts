@@ -44,9 +44,9 @@
   
   "_payments_population": {
     "host": "localhost",
-    "database": "btcpay_db",
+    "database": "btcpayservertestnet",
     "user": "postgres",
-    "password": "your_password_here",
+    "password": "",
     "port": 5432,
     "count": 1000,
     "batch_size": 100,
