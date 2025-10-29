@@ -188,7 +188,7 @@ class PaymentsTablePopulator:
             cursor.execute("""
                 SELECT EXISTS (
                     SELECT FROM information_schema.tables 
-                    WHERE table_name = 'payments'
+                    WHERE table_name = 'Payments'
                 );
             """)
             
@@ -197,7 +197,7 @@ class PaymentsTablePopulator:
             if not table_exists:
                 self.logger.info("Creating Payments table...")
                 cursor.execute("""
-                    CREATE TABLE payments (
+                    CREATE TABLE Payments (
                         "Id" text PRIMARY KEY,
                         "Blob" bytea,
                         "InvoiceDataId" text,
@@ -242,7 +242,7 @@ class PaymentsTablePopulator:
             for payment in payments:
                 try:
                     cursor.execute("""
-                        INSERT INTO payments (
+                        INSERT INTO Payments (
                             "Id", "Blob", "InvoiceDataId", "Accounted", "Blob2", 
                             "PaymentMethodId", "Amount", "Create", "Currency", "Status"
                         ) VALUES (
@@ -551,7 +551,7 @@ class InvoicesTablePopulator:
             cursor.execute("""
                 SELECT EXISTS (
                     SELECT FROM information_schema.tables 
-                    WHERE table_name = 'invoices'
+                    WHERE table_name = 'Invoices'
                 );
             """)
             
@@ -560,7 +560,7 @@ class InvoicesTablePopulator:
             if not table_exists:
                 self.logger.info("Creating Invoices table...")
                 cursor.execute("""
-                    CREATE TABLE invoices (
+                    CREATE TABLE Invoices (
                         "Id" text PRIMARY KEY,
                         "Blob" bytea,
                         "Created" timestamp with time zone,
@@ -605,7 +605,7 @@ class InvoicesTablePopulator:
             for invoice in invoices:
                 try:
                     cursor.execute("""
-                        INSERT INTO invoices (
+                        INSERT INTO Invoices (
                             "Id", "Blob", "Created", "ExceptionStatus", "Status", 
                             "StoreDataId", "Archived", "Blob2", "Amount", "Currency"
                         ) VALUES (
