@@ -406,13 +406,15 @@ class PaymentsTablePopulator:
 class InvoicesTablePopulator:
     """Database Invoices table populator with batch processing and error handling."""
     
-    def __init__(self, db_config: Dict):
+    def __init__(self, db_config: Dict, store_id: Optional[str] = None):
         """Initialize the invoices populator.
         
         Args:
             db_config: Database configuration dictionary
+            store_id: Optional store ID to use for all invoices
         """
         self.db_config = db_config
+        self.store_id = store_id
         
         # Setup logging
         os.makedirs('logs', exist_ok=True)
@@ -439,7 +441,7 @@ class InvoicesTablePopulator:
         self.generated_invoices: List[Dict] = []
         self.failed_invoices: List[Dict] = []
 
-    def generate_invoice_data(self, index: int, store_id: Optional[str] = None) -> Dict:
+    def generate_invoice_data(self, index: int) -> Dict:
         """Generate randomized invoice data.
         
         Args:
@@ -451,7 +453,7 @@ class InvoicesTablePopulator:
         # Generate unique ID
         invoice_id = str(uuid.uuid4())
         # Generate store data ID (simulate reference to store)
-        store_data_id = store_id if store_id else f"STORE-{random.randint(1, 10):02d}"
+        store_data_id = self.store_id if self.store_id else f"STORE-{random.randint(1, 10):02d}"
         amount = 1.00
         currency = 'USD'
         status = 'New'
@@ -661,7 +663,7 @@ class InvoicesTablePopulator:
             
             # Generate invoice data for current batch
             for i in range(batch_start, batch_end):
-                invoice_data = self.generate_invoice_data(i + 1)
+                invoice_data = self.generate_invoice_data(i + 1, self.store_id)
                 invoice_data['index'] = i + 1
                 batch_invoices.append(invoice_data)
             
@@ -844,7 +846,6 @@ def merge_config_with_args(config: Dict, args: argparse.Namespace) -> argparse.N
         
         if args.output_dir == 'payment_results' and 'output_dir' in payments_config:
             args.output_dir = payments_config['output_dir']
-    
     else:
         # Legacy config format
         if not args.host and 'host' in config:
@@ -870,6 +871,17 @@ def merge_config_with_args(config: Dict, args: argparse.Namespace) -> argparse.N
         
         if args.output_dir == 'payment_results' and 'output_dir' in config:
             args.output_dir = config['output_dir']
+        
+        # Handle store_id in legacy config format
+        if not args.store_id and 'store_id' in config:
+            args.store_id = config['store_id']
+    
+    # Handle invoice generation config if present (for store_id) - works for both universal and legacy formats
+    if '_invoice_generation' in config:
+        invoice_config = config['_invoice_generation']
+        
+        if not args.store_id and 'store_id' in invoice_config:
+            args.store_id = invoice_config['store_id']
     
     return args
 
@@ -916,6 +928,7 @@ Examples:
                        help='Number of invoices per batch (default: 100)')
     parser.add_argument('--invoice-output-dir', default='invoice_results',
                        help='Output directory for invoice result files (default: invoice_results)')
+    parser.add_argument('--store-id', help='Store ID to use for invoices (from _invoice_generation in config)')
     
     args = parser.parse_args()
     
@@ -996,7 +1009,7 @@ Examples:
     # Initialize invoice populator if needed
     invoice_populator = None
     if args.populate_invoices:
-        invoice_populator = InvoicesTablePopulator(db_config)
+        invoice_populator = InvoicesTablePopulator(db_config, store_id=args.store_id)
         
         # Create invoices table if it doesn't exist
         if not invoice_populator.create_invoices_table_if_not_exists():
