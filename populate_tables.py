@@ -128,7 +128,7 @@ class PaymentsTablePopulator:
         create_time = datetime.now()
         
         # Generate blob data (simulate binary payment data)
-        blob_data = f"payment_data_{index}_{int(time.time())}".encode('utf-8')
+        blob_data = "".encode('utf-8')
         
         # Generate JSON blob2 (payment metadata)
         blob2_data = {
@@ -472,42 +472,84 @@ class InvoicesTablePopulator:
         amount = 1.00
         currency = 'USD'
         status = 'New'
-        exception_status = None
+        exception_status = ''
         archived = False
         created_time = datetime.now()
         
         # Generate blob data (simulate binary invoice data)
-        blob_data = f"invoice_data_{index}_{int(time.time())}".encode('utf-8')
+        blob_data = "".encode('utf-8')
         
-        # Generate JSON blob2 (invoice metadata)
+        # Calculate expiration times (24 hours from now)
+        expiration_time = int((created_time + timedelta(hours=24)).timestamp())
+        monitoring_expiration = int((created_time + timedelta(hours=48)).timestamp())
+        
+        # Generate realistic BTC exchange rate (between 50k and 150k USD)
+        btc_rate = 100000
+        
+        # Generate realistic testnet address (Bech32 format: tb1q...)
+        # Using a simplified approach - in reality these are complex but for testing we can generate similar format
+        testnet_address_chars = '023456789acdefghjklmnpqrstuvwxyz'
+        address_suffix = ''.join(random.choice(testnet_address_chars) for _ in range(31))
+        destination = f"tb1q{address_suffix}"
+        
+        # Generate keyPath (derivation path like "0/1", "1/2", etc.)
+        key_path = f"{random.randint(0, 10)}/{random.randint(0, 10)}"
+        key_index = random.randint(0, 1000)
+        
+        # Generate account derivation (similar to tpub...)
+        tpub_chars = '0123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
+        tpub_suffix = ''.join(random.choice(tpub_chars) for _ in range(97))
+        account_derivation = f"tpub{tpub_suffix}"
+        
+        # Generate item description
+        item_desc = random.choice([
+            'Digital Product Purchase',
+            'Software License',
+            'Consultation Service',
+            'E-book Download',
+            'Course Access',
+            'Premium Subscription',
+            'API Access Credits',
+            'Digital Asset',
+            'Service Fee',
+            'Product Bundle'
+        ])
+        
+        # Generate fee rates (between 0.1 and 5.0)
+        fee_rate = round(random.uniform(0.1, 5.0), 1)
+        
+        # Generate JSON blob2 in BTCPay Server format
         blob2_data = {
-            'invoice_index': index,
-            'generated_at': datetime.now().isoformat(),
-            'customer_info': {
-                'email': f'customer{index:06d}@example.com',
-                'name': f'Customer {index:06d}',
-                'country': 'US'
+            'rates': {
+                'BTC': str(btc_rate)
             },
-            'order_details': {
-                'item_description': random.choice([
-                    'Digital Product Purchase',
-                    'Software License',
-                    'Consultation Service',
-                    'E-book Download',
-                    'Course Access',
-                    'Premium Subscription',
-                    'API Access Credits',
-                    'Digital Asset',
-                    'Service Fee',
-                    'Product Bundle'
-                ]),
-                'item_code': f'ITEM-{random.randint(1000, 9999)}',
-                'quantity': random.randint(1, 5),
-                'unit_price': round(amount / random.randint(1, 5), 2)
+            'prompts': {
+                'BTC-CHAIN': {
+                    'details': {
+                        'keyPath': key_path,
+                        'keyIndex': key_index,
+                        'payjoinEnabled': True,
+                        'accountDerivation': account_derivation,
+                        'recommendedFeeRate': fee_rate,
+                        'paymentMethodFeeRate': fee_rate
+                    },
+                    'currency': 'BTC',
+                    'destination': destination,
+                    'divisibility': 8
+                }
             },
-            'payment_methods': 'BTC',
-            'expiration_minutes': random.choice([15, 30, 60, 120, 1440]),  # 15min to 24h
-            'refund_email': f'refund{index:06d}@example.com'
+            'version': 3,
+            'metadata': {
+                'orderId': str(index),
+                'itemDesc': item_desc
+            },
+            'serverUrl': 'http://localhost',
+            'speedPolicy': 1,
+            'internalTags': [],
+            'expirationTime': expiration_time,
+            'receiptOptions': {},
+            'fullNotifications': True,
+            'monitoringExpiration': monitoring_expiration
         }
         
         invoice_data = {
