@@ -106,12 +106,14 @@ class PaymentsTablePopulator:
         self.generated_payments: List[Dict] = []
         self.failed_payments: List[Dict] = []
 
-    def generate_payment_data(self, index: int, invoice_id: str = None) -> Dict:
+    def generate_payment_data(self, index: int, invoice_id: str = None, key_path: str = None, destination: str = None) -> Dict:
         """Generate randomized payment data.
         
         Args:
             index: Payment index for unique identification
             invoice_id: Optional invoice ID to reference (if None, generates a fake one)
+            key_path: Optional keyPath from invoice (if None, generates a random one)
+            destination: Optional destination address from invoice (if None, generates a random one)
             
         Returns:
             Dictionary containing payment data
@@ -130,20 +132,39 @@ class PaymentsTablePopulator:
         # Generate blob data (simulate binary payment data)
         blob_data = "".encode('utf-8')
         
-        # Generate JSON blob2 (payment metadata)
+        # Use provided destination from invoice, or generate new one
+        if destination is None:
+            # testnet_address_chars = '023456789acdefghjklmnpqrstuvwxyz'
+            # address_suffix = ''.join(random.choice(testnet_address_chars) for _ in range(31))
+            # destination = f"tb1q{address_suffix}"
+            destination = "tb1qu0rmltek4y653wh3twc3p6u2zf3ev4ew6g0zxc"
+        
+        # Use provided keyPath from invoice, or generate new one
+        if key_path is None:
+            key_path = f"{random.randint(0, 20)}/{random.randint(0, 10)}"
+        
+        # Generate outpoint (transaction hash-like string)
+        # Format: alphanumeric string followed by dash and output index
+        # Example: "11cec777e08regjnwerolfgmfoiermvmrvikevrvb-1"
+        # outpoint_chars = '0123456789abcdefghijklmnopqrstuvwxyz'
+        # tx_hash = ''.join(random.choice(outpoint_chars) for _ in range(40))
+        # output_index = random.randint(0, 10)
+        # outpoint = f"{tx_hash}-{output_index}"
+        outpoint = "11cec777e08a3ab323e368d2637b1f36517df6ca06ad3c11196bddcfb774346b-1"
+        
+        # Generate confirmation count (1-6 for most payments)
+        confirmation_count = random.randint(3, 6)
+        
+        # Generate JSON blob2 in BTCPay Server payment format
         blob2_data = {
-            'payment_index': index,
-            'generated_at': datetime.now().isoformat(),
-            'transaction_hash': f"tx_{random.randint(100000, 999999):06d}",
-            'block_height': random.randint(800000, 900000) if payment_method_id in ['BTC', 'LTC', 'BCH'] else None,
-            'confirmations': random.randint(1, 6) if payment_method_id in ['BTC', 'LTC', 'BCH'] else None,
-            'network_fee': round(random.uniform(0.0001, 0.01), 6) if payment_method_id in ['BTC', 'LTC', 'BCH'] else None,
-            'payment_provider': 'BTCPay Server',
-            'customer_info': {
-                'email': f'customer{index:06d}@example.com',
-                'name': f'Customer {index:06d}',
-                'country': 'US'
-            }
+            'details': {
+                'keyPath': key_path,
+                'outpoint': outpoint,
+                'confirmationCount': confirmation_count
+            },
+            'version': 2,
+            'destination': destination,
+            'divisibility': 8
         }
         
         payment_data = {
@@ -291,13 +312,14 @@ class PaymentsTablePopulator:
         
         return successful, failed
 
-    def populate_payments(self, count: int, batch_size: int = 100, invoice_ids: Optional[List[str]] = None) -> None:
+    def populate_payments(self, count: int, batch_size: int = 100, invoice_ids: Optional[List[str]] = None, invoice_details: Optional[Dict[str, Dict]] = None) -> None:
         """Populate the Payments table with fake data.
         
         Args:
             count: Total number of payments to generate
             batch_size: Number of payments per batch
             invoice_ids: Optional list of invoice IDs to reference. If provided, payments will reference these IDs.
+            invoice_details: Optional dict mapping invoice_id to {key_path, destination} for matching payment details.
         """
         self.stats['total_requested'] = count
         self.stats['start_time'] = datetime.now()
@@ -316,10 +338,23 @@ class PaymentsTablePopulator:
             for i in range(batch_start, batch_end):
                 # Use invoice ID from list if available (round-robin if more payments than invoices)
                 invoice_id = None
+                key_path = None
+                destination = None
+                
                 if invoice_ids:
                     invoice_id = invoice_ids[i % len(invoice_ids)]
+                    # Get key_path and destination from invoice_details if available
+                    if invoice_details and invoice_id in invoice_details:
+                        details = invoice_details[invoice_id]
+                        key_path = details.get('key_path')
+                        destination = details.get('destination')
                 
-                payment_data = self.generate_payment_data(i + 1, invoice_id=invoice_id)
+                payment_data = self.generate_payment_data(
+                    i + 1, 
+                    invoice_id=invoice_id,
+                    key_path=key_path,
+                    destination=destination
+                )
                 payment_data['index'] = i + 1
                 batch_payments.append(payment_data)
             
@@ -471,7 +506,7 @@ class InvoicesTablePopulator:
         store_data_id = self.store_id if self.store_id else f"STORE-{random.randint(1, 10):02d}"
         amount = 1.00
         currency = 'USD'
-        status = 'New'
+        status = 'Settled'
         exception_status = ''
         archived = False
         created_time = datetime.now()
@@ -488,9 +523,10 @@ class InvoicesTablePopulator:
         
         # Generate realistic testnet address (Bech32 format: tb1q...)
         # Using a simplified approach - in reality these are complex but for testing we can generate similar format
-        testnet_address_chars = '023456789acdefghjklmnpqrstuvwxyz'
-        address_suffix = ''.join(random.choice(testnet_address_chars) for _ in range(31))
-        destination = f"tb1q{address_suffix}"
+        # testnet_address_chars = '023456789acdefghjklmnpqrstuvwxyz'
+        # address_suffix = ''.join(random.choice(testnet_address_chars) for _ in range(31))
+        # destination = f"tb1q{address_suffix}"
+        destination = "tb1qu0rmltek4y653wh3twc3p6u2zf3ev4ew6g0zxc"
         
         # Generate keyPath (derivation path like "0/1", "1/2", etc.)
         key_path = f"{random.randint(0, 10)}/{random.randint(0, 10)}"
@@ -665,6 +701,19 @@ class InvoicesTablePopulator:
                     """, invoice)
                     
                     successful += 1
+                    # Extract key_path and destination from blob2
+                    key_path = None
+                    destination = None
+                    try:
+                        blob2_json = json.loads(invoice['Blob2'])
+                        if 'prompts' in blob2_json and 'BTC-CHAIN' in blob2_json['prompts']:
+                            btc_chain = blob2_json['prompts']['BTC-CHAIN']
+                            destination = btc_chain.get('destination')
+                            if 'details' in btc_chain and 'keyPath' in btc_chain['details']:
+                                key_path = btc_chain['details']['keyPath']
+                    except (json.JSONDecodeError, KeyError):
+                        pass
+                    
                     self.generated_invoices.append({
                         'index': invoice.get('index', 0),
                         'success': True,
@@ -674,7 +723,9 @@ class InvoicesTablePopulator:
                         'currency': invoice['Currency'],
                         'status': invoice['Status'],
                         'exception_status': invoice['ExceptionStatus'],
-                        'archived': invoice['Archived']
+                        'archived': invoice['Archived'],
+                        'key_path': key_path,
+                        'destination': destination
                     })
                     
                 except Exception as e:
@@ -1069,6 +1120,7 @@ Examples:
     try:
         # Populate invoices first (if requested) - payments reference invoices
         invoice_ids = None
+        invoice_details = None
         if args.populate_invoices and invoice_populator:
             print(f"\nStarting population of {args.count:,} invoices...")
             invoice_populator.populate_invoices(
@@ -1082,20 +1134,29 @@ Examples:
             if invoice_populator.stats['successful'] > 0:
                 print(f"\n✅ Successfully populated {invoice_populator.stats['successful']:,} invoices!")
                 
-                # Extract invoice IDs from generated invoices for payment references
+                # Extract invoice IDs and details (key_path, destination) from generated invoices
                 invoice_ids = [inv['invoice_id'] for inv in invoice_populator.generated_invoices]
+                invoice_details = {
+                    inv['invoice_id']: {
+                        'key_path': inv.get('key_path'),
+                        'destination': inv.get('destination')
+                    }
+                    for inv in invoice_populator.generated_invoices
+                }
                 print(f"   Using {len(invoice_ids)} invoice IDs for payment references")
+                print(f"   Matching key_path and destination from invoices")
             
             if invoice_populator.stats['failed'] > 0:
                 print(f"⚠️  {invoice_populator.stats['failed']:,} invoices failed to insert.")
                 print("Check the failed_invoices_*.json file for details.")
         
-        # Populate payments (can reference invoice IDs if invoices were created)
+        # Populate payments (can reference invoice IDs and details if invoices were created)
         print(f"\nStarting population of {args.count:,} payments...")
         populator.populate_payments(
             count=args.count,
             batch_size=args.batch_size,
-            invoice_ids=invoice_ids
+            invoice_ids=invoice_ids,
+            invoice_details=invoice_details
         )
         
         # Export results
