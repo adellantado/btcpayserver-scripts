@@ -4,6 +4,7 @@ Database Payments and Invoices Table Populator
 
 This script populates the Payments and/or Invoices tables with fake data.
 It generates realistic records with all required fields and supports batch processing.
+Note: When populating both tables, invoices are populated first so payments can reference them.
 
 Table "Payments":
 - Id: text
@@ -36,7 +37,7 @@ Usage:
     # Populate invoices table only
     python populate_tables.py --config universal_config.json --populate-invoices --invoice-count 1000
     
-    # Populate both tables
+    # Populate both tables (invoices first, then payments that reference them)
     python populate_tables.py --config universal_config.json --count 1000 --populate-invoices --invoice-count 1000
 """
 
@@ -283,12 +284,13 @@ class PaymentsTablePopulator:
         
         return successful, failed
 
-    def populate_payments(self, count: int, batch_size: int = 100) -> None:
+    def populate_payments(self, count: int, batch_size: int = 100, invoice_ids: Optional[List[str]] = None) -> None:
         """Populate the Payments table with fake data.
         
         Args:
             count: Total number of payments to generate
             batch_size: Number of payments per batch
+            invoice_ids: Optional list of invoice IDs to reference. If provided, payments will reference these IDs.
         """
         self.stats['total_requested'] = count
         self.stats['start_time'] = datetime.now()
@@ -305,7 +307,12 @@ class PaymentsTablePopulator:
             
             # Generate payment data for current batch
             for i in range(batch_start, batch_end):
-                payment_data = self.generate_payment_data(i + 1)
+                # Use invoice ID from list if available (round-robin if more payments than invoices)
+                invoice_id = None
+                if invoice_ids:
+                    invoice_id = invoice_ids[i % len(invoice_ids)]
+                
+                payment_data = self.generate_payment_data(i + 1, invoice_id=invoice_id)
                 payment_data['index'] = i + 1
                 batch_payments.append(payment_data)
             
@@ -1021,24 +1028,8 @@ Examples:
         return 0
     
     try:
-        # Populate payments
-        print(f"\nStarting population of {args.count:,} payments...")
-        populator.populate_payments(
-            count=args.count,
-            batch_size=args.batch_size
-        )
-        
-        # Export results
-        populator.export_results(args.output_dir)
-        
-        if populator.stats['successful'] > 0:
-            print(f"\n✅ Successfully populated {populator.stats['successful']:,} payments!")
-        
-        if populator.stats['failed'] > 0:
-            print(f"⚠️  {populator.stats['failed']:,} payments failed to insert.")
-            print("Check the failed_payments_*.json file for details.")
-        
-        # Populate invoices if requested
+        # Populate invoices first (if requested) - payments reference invoices
+        invoice_ids = None
         if args.populate_invoices and invoice_populator:
             print(f"\nStarting population of {args.invoice_count:,} invoices...")
             invoice_populator.populate_invoices(
@@ -1051,10 +1042,32 @@ Examples:
             
             if invoice_populator.stats['successful'] > 0:
                 print(f"\n✅ Successfully populated {invoice_populator.stats['successful']:,} invoices!")
+                
+                # Extract invoice IDs from generated invoices for payment references
+                invoice_ids = [inv['invoice_id'] for inv in invoice_populator.generated_invoices]
+                print(f"   Using {len(invoice_ids)} invoice IDs for payment references")
             
             if invoice_populator.stats['failed'] > 0:
                 print(f"⚠️  {invoice_populator.stats['failed']:,} invoices failed to insert.")
                 print("Check the failed_invoices_*.json file for details.")
+        
+        # Populate payments (can reference invoice IDs if invoices were created)
+        print(f"\nStarting population of {args.count:,} payments...")
+        populator.populate_payments(
+            count=args.count,
+            batch_size=args.batch_size,
+            invoice_ids=invoice_ids
+        )
+        
+        # Export results
+        populator.export_results(args.output_dir)
+        
+        if populator.stats['successful'] > 0:
+            print(f"\n✅ Successfully populated {populator.stats['successful']:,} payments!")
+        
+        if populator.stats['failed'] > 0:
+            print(f"⚠️  {populator.stats['failed']:,} payments failed to insert.")
+            print("Check the failed_payments_*.json file for details.")
         
         # Determine overall success
         payments_success = populator.stats['failed'] == 0
@@ -1064,9 +1077,9 @@ Examples:
         
     except KeyboardInterrupt:
         print("\n\n⚠️  Population interrupted by user")
-        populator.export_results(args.output_dir)
         if args.populate_invoices and invoice_populator:
             invoice_populator.export_results(args.invoice_output_dir)
+        populator.export_results(args.output_dir)
         return 1
     except Exception as e:
         print(f"\n❌ Unexpected error: {str(e)}")
