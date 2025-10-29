@@ -14,7 +14,7 @@ Table "Payments":
 - Blob2: jsonb
 - PaymentMethodId: text
 - Amount: numeric
-- Create: timestampz
+- Created: timestampz
 - Currency: text
 - Status: text
 
@@ -147,7 +147,7 @@ class PaymentsTablePopulator:
             'Blob2': json.dumps(blob2_data),
             'PaymentMethodId': payment_method_id,
             'Amount': amount,
-            'Create': create_time,
+            'Created': create_time,
             'Currency': currency,
             'Status': status
         }
@@ -205,7 +205,7 @@ class PaymentsTablePopulator:
                         "Blob2" jsonb,
                         "PaymentMethodId" text,
                         "Amount" numeric,
-                        "Create" timestamp with time zone,
+                        "Created" timestamp with time zone,
                         "Currency" text,
                         "Status" text
                     );
@@ -242,12 +242,12 @@ class PaymentsTablePopulator:
             for payment in payments:
                 try:
                     cursor.execute("""
-                        INSERT INTO Payments (
+                        INSERT INTO "Payments" (
                             "Id", "Blob", "InvoiceDataId", "Accounted", "Blob2", 
-                            "PaymentMethodId", "Amount", "Create", "Currency", "Status"
+                            "PaymentMethodId", "Amount", "Created", "Currency", "Status"
                         ) VALUES (
                             %(Id)s, %(Blob)s, %(InvoiceDataId)s, %(Accounted)s, %(Blob2)s,
-                            %(PaymentMethodId)s, %(Amount)s, %(Create)s, %(Currency)s, %(Status)s
+                            %(PaymentMethodId)s, %(Amount)s, %(Created)s, %(Currency)s, %(Status)s
                         )
                     """, payment)
                     
@@ -605,7 +605,7 @@ class InvoicesTablePopulator:
             for invoice in invoices:
                 try:
                     cursor.execute("""
-                        INSERT INTO Invoices (
+                        INSERT INTO "Invoices" (
                             "Id", "Blob", "Created", "ExceptionStatus", "Status", 
                             "StoreDataId", "Archived", "Blob2", "Amount", "Currency"
                         ) VALUES (
@@ -670,7 +670,7 @@ class InvoicesTablePopulator:
             
             # Generate invoice data for current batch
             for i in range(batch_start, batch_end):
-                invoice_data = self.generate_invoice_data(i + 1, self.store_id)
+                invoice_data = self.generate_invoice_data(i + 1)
                 invoice_data['index'] = i + 1
                 batch_invoices.append(invoice_data)
             
@@ -929,8 +929,6 @@ Examples:
     # Invoice population arguments
     parser.add_argument('--populate-invoices', action='store_true',
                        help='Populate invoices table with fake data')
-    parser.add_argument('--invoice-count', type=int, default=1000,
-                       help='Number of invoices to generate (default: 1000)')
     parser.add_argument('--invoice-batch-size', type=int, default=100,
                        help='Number of invoices per batch (default: 100)')
     parser.add_argument('--invoice-output-dir', default='invoice_results',
@@ -938,6 +936,7 @@ Examples:
     parser.add_argument('--store-id', help='Store ID to use for invoices (from _invoice_generation in config)')
     
     args = parser.parse_args()
+    args.populate_invoices = True
     
     # Load configuration file if provided
     if args.config:
@@ -977,16 +976,6 @@ Examples:
     if args.batch_size <= 0:
         print("Error: Batch size must be positive")
         return 1
-    
-    # Validate invoice arguments if populating invoices
-    if args.populate_invoices:
-        if args.invoice_count <= 0:
-            print("Error: Invoice count must be positive")
-            return 1
-        
-        if args.invoice_batch_size <= 0:
-            print("Error: Invoice batch size must be positive")
-            return 1
     
     # Prepare database configuration
     db_config = {
@@ -1031,10 +1020,10 @@ Examples:
         # Populate invoices first (if requested) - payments reference invoices
         invoice_ids = None
         if args.populate_invoices and invoice_populator:
-            print(f"\nStarting population of {args.invoice_count:,} invoices...")
+            print(f"\nStarting population of {args.count:,} invoices...")
             invoice_populator.populate_invoices(
-                count=args.invoice_count,
-                batch_size=args.invoice_batch_size
+                count=args.count,
+                batch_size=args.batch_size
             )
             
             # Export invoice results
