@@ -63,6 +63,13 @@ except ImportError:
 from tqdm import tqdm
 
 
+def generate_base58_id(length: int = 22) -> str:
+    """Generate a BTCPay Server style invoice ID."""
+    # Base58 alphabet (no 0, O, I, l)
+    alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
+    return ''.join(random.choice(alphabet) for _ in range(length))
+
+
 class PaymentsTablePopulator:
     """Database Payments table populator with batch processing and error handling."""
     
@@ -457,8 +464,9 @@ class InvoicesTablePopulator:
         Returns:
             Dictionary containing invoice data
         """
-        # Generate unique ID
-        invoice_id = str(uuid.uuid4())
+        # Generate unique ID in BTCPay Server format (base58, 22 chars)
+        invoice_id = generate_base58_id(22)
+        
         # Generate store data ID (simulate reference to store)
         store_data_id = self.store_id if self.store_id else f"STORE-{random.randint(1, 10):02d}"
         amount = 1.00
