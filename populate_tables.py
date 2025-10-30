@@ -1088,6 +1088,9 @@ def merge_config_with_args(config: Dict, args: argparse.Namespace) -> argparse.N
         
         if args.output_dir == 'payment_results' and 'output_dir' in payments_config:
             args.output_dir = payments_config['output_dir']
+
+        if not args.store_id and 'store_id' in payments_config:
+            args.store_id = payments_config['store_id']
     else:
         # Legacy config format
         if not args.host and 'host' in config:
@@ -1117,13 +1120,6 @@ def merge_config_with_args(config: Dict, args: argparse.Namespace) -> argparse.N
         # Handle store_id in legacy config format
         if not args.store_id and 'store_id' in config:
             args.store_id = config['store_id']
-    
-    # Handle invoice generation config if present (for store_id) - works for both universal and legacy formats
-    if '_invoice_generation' in config:
-        invoice_config = config['_invoice_generation']
-        
-        if not args.store_id and 'store_id' in invoice_config:
-            args.store_id = invoice_config['store_id']
     
     return args
 
@@ -1168,7 +1164,7 @@ Examples:
                        help='Number of invoices per batch (default: 100)')
     parser.add_argument('--invoice-output-dir', default='invoice_results',
                        help='Output directory for invoice result files (default: invoice_results)')
-    parser.add_argument('--store-id', help='Store ID to use for invoices (from _invoice_generation in config)')
+    parser.add_argument('--store-id', help='Store ID to use for invoices')
     
     args = parser.parse_args()
     args.populate_invoices = True
