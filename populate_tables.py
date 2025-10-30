@@ -42,6 +42,7 @@ Usage:
 """
 
 import argparse
+import csv
 import json
 import logging
 import os
@@ -105,6 +106,10 @@ class PaymentsTablePopulator:
         # Store generated payments for export
         self.generated_payments: List[Dict] = []
         self.failed_payments: List[Dict] = []
+        
+        # CSV file path
+        self.csv_file = Path('csv') / 'payments.csv'
+        self._ensure_csv_header()
 
     def generate_payment_data(self, index: int, invoice_id: str = None, key_path: str = None, destination: str = None) -> Dict:
         """Generate randomized payment data.
@@ -202,6 +207,64 @@ class PaymentsTablePopulator:
             self.logger.error(f"Database connection test failed: {str(e)}")
             return False
 
+    def _ensure_csv_header(self) -> None:
+        """Ensure CSV file exists with header row."""
+        self.csv_file.parent.mkdir(exist_ok=True)
+        if not self.csv_file.exists():
+            with open(self.csv_file, 'w', newline='', encoding='utf-8') as f:
+                writer = csv.writer(f)
+                writer.writerow([
+                    'Id', 'Blob', 'InvoiceDataId', 'Accounted', 'Blob2',
+                    'PaymentMethodId', 'Amount', 'Created', 'Currency', 'Status'
+                ])
+
+    def _write_payment_to_csv(self, payment: Dict) -> None:
+        """Write a payment record to CSV file.
+        
+        Args:
+            payment: Payment dictionary with all fields
+        """
+        try:
+            # Format datetime for CSV (matching template format: 2025-08-28 09:14:47.000-0400)
+            created = payment['Created']
+            # Ensure timezone-aware datetime
+            if created.tzinfo is None:
+                from datetime import timezone
+                created = created.replace(tzinfo=timezone.utc)
+            # Get timezone offset
+            offset_seconds = created.utcoffset().total_seconds()
+            hours = int(offset_seconds // 3600)
+            minutes = int((offset_seconds % 3600) // 60)
+            offset_str = f"{hours:+03d}{minutes:02d}"
+            # Format: YYYY-MM-DD HH:MM:SS.000±HHMM
+            created_str = created.strftime('%Y-%m-%d %H:%M:%S') + f'.000{offset_str}'
+            
+            # Format boolean (Accounted: empty string when False, '1' when True - template shows empty)
+            accounted_str = '1' if payment.get('Accounted') else ''
+            
+            # Blob is empty string
+            blob_str = ''
+            
+            # Blob2 is already a JSON string
+            blob2_str = payment['Blob2']
+            
+            with open(self.csv_file, 'a', newline='', encoding='utf-8') as f:
+                writer = csv.writer(f)
+                writer.writerow([
+                    payment['Id'],
+                    blob_str,
+                    payment['InvoiceDataId'],
+                    accounted_str,
+                    blob2_str,
+                    payment['PaymentMethodId'],
+                    payment['Amount'],
+                    created_str,
+                    payment['Currency'],
+                    payment['Status']
+                ])
+        except Exception as e:
+            self.logger.warning(f"Failed to write payment to CSV: {str(e)}")
+
     def create_payments_table_if_not_exists(self) -> bool:
         """Create Payments table if it doesn't exist.
         
@@ -278,6 +341,9 @@ class PaymentsTablePopulator:
                             %(PaymentMethodId)s, %(Amount)s, %(Created)s, %(Currency)s, %(Status)s
                         )
                     """, payment)
+                    
+                    # Write to CSV file after successful DB insert
+                    self._write_payment_to_csv(payment)
                     
                     successful += 1
                     self.generated_payments.append({
@@ -489,6 +555,10 @@ class InvoicesTablePopulator:
         # Store generated invoices for export
         self.generated_invoices: List[Dict] = []
         self.failed_invoices: List[Dict] = []
+        
+        # CSV file path
+        self.csv_file = Path('csv') / 'invoices.csv'
+        self._ensure_csv_header()
 
     def generate_invoice_data(self, index: int) -> Dict:
         """Generate randomized invoice data.
@@ -623,6 +693,67 @@ class InvoicesTablePopulator:
             self.logger.error(f"Database connection test failed: {str(e)}")
             return False
 
+    def _ensure_csv_header(self) -> None:
+        """Ensure CSV file exists with header row."""
+        self.csv_file.parent.mkdir(exist_ok=True)
+        if not self.csv_file.exists():
+            with open(self.csv_file, 'w', newline='', encoding='utf-8') as f:
+                writer = csv.writer(f)
+                writer.writerow([
+                    'Id', 'Blob', 'Created', 'ExceptionStatus', 'Status',
+                    'StoreDataId', 'Archived', 'Blob2', 'Amount', 'Currency'
+                ])
+
+    def _write_invoice_to_csv(self, invoice: Dict) -> None:
+        """Write an invoice record to CSV file.
+        
+        Args:
+            invoice: Invoice dictionary with all fields
+        """
+        try:
+            # Format datetime for CSV (matching template format: 2025-08-28 09:14:47.000-0400)
+            created = invoice['Created']
+            # Ensure timezone-aware datetime
+            if created.tzinfo is None:
+                from datetime import timezone
+                created = created.replace(tzinfo=timezone.utc)
+            # Get timezone offset
+            offset_seconds = created.utcoffset().total_seconds()
+            hours = int(offset_seconds // 3600)
+            minutes = int((offset_seconds % 3600) // 60)
+            offset_str = f"{hours:+03d}{minutes:02d}"
+            # Format: YYYY-MM-DD HH:MM:SS.000±HHMM
+            created_str = created.strftime('%Y-%m-%d %H:%M:%S') + f'.000{offset_str}'
+            
+            # Format boolean (Archived: 0 for false, 1 for true based on template)
+            archived_str = '1' if invoice.get('Archived') else '0'
+            
+            # Blob is empty string
+            blob_str = ''
+            
+            # Blob2 is already a JSON string
+            blob2_str = invoice['Blob2']
+            
+            # ExceptionStatus - empty string if None or empty
+            exception_status = invoice.get('ExceptionStatus') or ''
+            
+            with open(self.csv_file, 'a', newline='', encoding='utf-8') as f:
+                writer = csv.writer(f)
+                writer.writerow([
+                    invoice['Id'],
+                    blob_str,
+                    created_str,
+                    exception_status,
+                    invoice['Status'],
+                    invoice['StoreDataId'],
+                    archived_str,
+                    blob2_str,
+                    invoice['Amount'],
+                    invoice['Currency']
+                ])
+        except Exception as e:
+            self.logger.warning(f"Failed to write invoice to CSV: {str(e)}")
+
     def create_invoices_table_if_not_exists(self) -> bool:
         """Create Invoices table if it doesn't exist.
         
@@ -699,6 +830,9 @@ class InvoicesTablePopulator:
                             %(StoreDataId)s, %(Archived)s, %(Blob2)s, %(Amount)s, %(Currency)s
                         )
                     """, invoice)
+                    
+                    # Write to CSV file after successful DB insert
+                    self._write_invoice_to_csv(invoice)
                     
                     successful += 1
                     # Extract key_path and destination from blob2

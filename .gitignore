@@ -15,3 +15,9 @@ todo
 
 # Copies of files
 *.copy
+
+# ignore results folders
+invoice_results/
+payment_results/
+csv/invoices.csv
+csv/payments.csv
