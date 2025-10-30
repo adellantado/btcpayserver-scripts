@@ -22,9 +22,9 @@
   },
   
   "_invoice_generation": {
-    "api_key": "your_btcpay_api_key_here",
-    "store_id": "your_store_id_here",
-    "base_url": "https://your-btcpay-server.com",
+    "api_key": "2e05319d78fdb120c5fc43a0a0296a3b03d09cec",
+    "store_id": "",
+    "base_url": "http://localhost",
     "count": 1000,
     "batch_size": 50,
     "delay": 0.1,
@@ -43,12 +43,13 @@
   },
   
   "_payments_population": {
+    "store_id": "3jFPYUVUpGqiJ5pT2TgaSXMj3986NQMzRXfYDBJq5owf",
     "host": "localhost",
     "database": "btcpayservertestnet",
     "user": "postgres",
-    "password": "",
+    "password": " ",
     "port": 5432,
-    "count": 1000,
+    "count": 3,
     "batch_size": 100,
     "output_dir": "payment_results",
     "_description": "Settings for populate_tables.py script - database connection and population settings"
