@@ -96,12 +96,46 @@ python pay_invoices.py --config example_payment_config.json
 
 ## Installation
 
-1. Install Python dependencies:
+### Option 1: Using uv (Recommended)
+
+[uv](https://github.com/astral-sh/uv) is a fast Python package installer and resolver written in Rust. It's the recommended way to install dependencies for this project.
+
+1. **Install uv** (if not already installed):
+```bash
+# On macOS and Linux
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# On Windows
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+
+# Or via pip
+pip install uv
+```
+
+2. **Install dependencies using uv**:
+```bash
+# Install all dependencies from pyproject.toml
+uv sync
+
+# Or install dependencies in your current environment
+uv pip install -e .
+```
+
+3. **Run scripts with uv**:
+```bash
+# Run scripts using uv's Python environment
+uv run python generate_addresses.py --testnet
+uv run python generate_invoices.py --config universal_config.json
+```
+
+### Option 2: Using pip (Traditional)
+
+1. **Install Python dependencies**:
 ```bash
 pip install -r requirements.txt
 ```
 
-2. Make sure you have a Bitcoin wallet set up or the script will create one for you.
+2. **Make sure you have a Bitcoin wallet set up** or the script will create one for you.
 
 ## Usage
 
