@@ -137,6 +137,107 @@ pip install -r requirements.txt
 
 2. **Make sure you have a Bitcoin wallet set up** or the script will create one for you.
 
+## Configuration
+
+The `universal_config.json` file contains all configuration settings for the scripts. Each script uses specific sections of the config file. Here's which sections you need to adjust before using each script:
+
+### Before Using `generate_addresses.py`
+
+Adjust these sections in `universal_config.json`:
+
+- **`_network_settings`** (Required)
+  - `mainnet`: Set to `false` for testnet (recommended) or `true` for mainnet (real Bitcoin)
+  - `rpc_command`: Custom RPC command for transaction broadcasting (optional)
+
+- **`_address_generation`** (Required)
+  - `count`: Number of addresses to generate (default: 1000)
+  - `amount`: Amount in BTC to send to each address (default: 0.001)
+  - `no_funding`: Set to `true` to generate addresses only without funding
+  - `output`: Output filename for generated addresses (default: "generated_addresses.json")
+  - `wallet_name`: Name of the funding wallet (default: "wallet_1")
+  - `max_fee`: Maximum transaction fee in BTC (default: 0.0001)
+  - `batch_size`: Number of addresses to process per batch (default: 50)
+  - `derivation_mode`: Set to `true` to generate addresses from existing wallet using derivation path
+  - `start_index`: Starting index for derivation path (default: 1)
+
+- **`_key_import_options`** (Optional - only if importing existing wallet)
+  - Use **only one** of: `private_key`, `mnemonic`, or `key_file`
+  - Leave all empty to create a new wallet
+
+### Before Using `generate_invoices.py`
+
+Adjust this section in `universal_config.json`:
+
+- **`_invoice_generation`** (Required)
+  - `api_key`: Your BTCPay Server API key (required)
+  - `store_id`: Your BTCPay Server store ID (required)
+  - `base_url`: Your BTCPay Server base URL (e.g., "http://localhost" or "https://btcpay.example.com")
+  - `count`: Number of invoices to generate (default: 1000)
+  - `batch_size`: Concurrent requests per batch (default: 50)
+  - `delay`: Delay between batches in seconds (default: 0.1)
+  - `output_dir`: Directory for output files (default: "invoice_results")
+
+### Before Using `pay_invoices.py`
+
+Adjust these sections in `universal_config.json`:
+
+- **`_network_settings`** (Required)
+  - `mainnet`: Set to `false` for testnet or `true` for mainnet
+  - Must match the network used when generating addresses
+
+- **`_invoice_generation`** (Required - for BTCPay Server connection)
+  - `api_key`: Your BTCPay Server API key
+  - `store_id`: Your BTCPay Server store ID
+  - `base_url`: Your BTCPay Server base URL
+
+- **`_payment_processing`** (Required)
+  - `addresses_file`: Path to the addresses file from `generate_addresses.py` (default: "generated_addresses.json")
+  - `invoices_file`: Path to invoices file from `generate_invoices.py` (supports wildcards, e.g., "invoice_results/successful_invoices_*.json")
+  - `delay`: Delay between payments in seconds (default: 1.0)
+  - `max_invoices`: Maximum number of invoices to pay (set to `null` for all)
+  - `max_fee`: Maximum transaction fee in BTC (default: 0.0001)
+  - `output_dir`: Directory for payment results (default: "payment_results")
+
+### Before Using `populate_tables.py`
+
+Adjust this section in `universal_config.json`:
+
+- **`_payments_population`** (Required)
+  - `store_id`: Store ID to use for invoices (required)
+  - `host`: PostgreSQL database host (default: "localhost")
+  - `database`: Database name (required)
+  - `user`: Database username (required)
+  - `password`: Database password (required)
+  - `port`: Database port (default: 5432)
+  - `count`: Number of payments/invoices to generate (default: 3)
+  - `batch_size`: Number of records per batch (default: 100)
+  - `output_dir`: Directory for result files (default: "payment_results")
+
+### Before Using `test_btcpay_health.py`
+
+Adjust this section in `universal_config.json`:
+
+- **`_invoice_generation`** (Required)
+  - `api_key`: Your BTCPay Server API key
+  - `store_id`: Your BTCPay Server store ID
+  - `base_url`: Your BTCPay Server base URL
+
+### Configuration Priority
+
+Command-line arguments always take precedence over config file values. You can override any config setting by providing it as a command-line argument.
+
+### Example: Complete Workflow Configuration
+
+For a complete workflow, you'll need to configure:
+
+1. **`_network_settings`** - Set network (testnet recommended)
+2. **`_address_generation`** - Configure address generation
+3. **`_invoice_generation`** - Set BTCPay Server credentials
+4. **`_payment_processing`** - Configure payment processing
+5. **`_payments_population`** - Set database connection details
+
+All scripts can share the same `universal_config.json` file, making it easy to maintain consistent settings across the entire workflow.
+
 ## Usage
 
 ### Bitcoin Address Generator
