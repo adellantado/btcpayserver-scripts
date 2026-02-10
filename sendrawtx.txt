@@ -1,0 +1,28 @@
+sudo docker exec -it btcpayserver_bitcoind bitcoin-cli -datadir="/data" sendrawtransaction <hexstring>
+
+
+
+import requests
+import json
+
+rpc_user = "bitcoinrpc"
+rpc_password = "MyStrongPassword"
+rpc_port = 18332
+url = f"http://127.0.0.1:{rpc_port}/"
+
+headers = {"content-type": "text/plain;"}
+payload = json.dumps({
+    "jsonrpc": "1.0",
+    "id": "pythonclient",
+    "method": "getblockcount",
+    "params": []
+})
+
+response = requests.post(url, headers=headers, data=payload, auth=(rpc_user, rpc_password))
+print(response.json())
+
+
+curl -s -v --user "__cookie__:b3417d5423f873fe7ebf43ad26f797841a1f6aa1c258511d86a8f073faed761e" \
+     --data-binary '{"jsonrpc":"1.0","id":"btcpay","method":"getnetworkinfo","params":[]}' \
+     -H 'content-type: text/plain;' \
+     http://127.0.0.1:43782/
