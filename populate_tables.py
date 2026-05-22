@@ -30,6 +30,11 @@ Table "Invoices":
 - Amount: numeric
 - Currency: text
 
+Table "InvoiceSearches":
+- Id: integer
+- InvoiceDataId: text
+- Value: text
+
 Usage:
     # Populate payments table only
     python populate_tables.py --config universal_config.json --count 1000
@@ -50,6 +55,7 @@ import random
 import time
 import uuid
 from datetime import datetime, timedelta
+from decimal import Decimal, InvalidOperation, ROUND_CEILING
 from typing import Dict, List, Optional, Tuple
 from pathlib import Path
 
@@ -754,8 +760,79 @@ class InvoicesTablePopulator:
         except Exception as e:
             self.logger.warning(f"Failed to write invoice to CSV: {str(e)}")
 
+    def _format_search_decimal(self, value) -> Optional[str]:
+        """Format numeric search values without unnecessary trailing zeros."""
+        try:
+            decimal_value = Decimal(str(value))
+        except (InvalidOperation, TypeError, ValueError):
+            return None
+
+        normalized = decimal_value.normalize()
+        if normalized == normalized.to_integral():
+            return str(normalized.quantize(Decimal(1)))
+        return format(normalized, 'f')
+
+    def _format_search_datetime(self, value: datetime) -> str:
+        """Format invoice creation time the way BTCPay stores invoice search text."""
+        from datetime import timezone
+
+        if value.tzinfo is None:
+            value = value.replace(tzinfo=timezone.utc)
+        else:
+            value = value.astimezone(timezone.utc)
+
+        return (
+            f"{value.month}/{value.day}/{value.year} "
+            f"{value:%H:%M:%S} +00:00"
+        )
+
+    def _build_invoice_search_values(self, invoice: Dict) -> List[str]:
+        """Build InvoiceSearches values matching BTCPay invoice search records."""
+        values = []
+        blob2_json = {}
+
+        try:
+            blob2_json = json.loads(invoice['Blob2'])
+        except (json.JSONDecodeError, KeyError, TypeError):
+            self.logger.warning(f"Invoice {invoice.get('Id', 'unknown')} has invalid Blob2 JSON")
+
+        prompts = blob2_json.get('prompts', {})
+        btc_chain = prompts.get('BTC-CHAIN', {})
+        destination = btc_chain.get('destination')
+        if destination:
+            values.append(destination)
+
+        rate = blob2_json.get('rates', {}).get('BTC')
+        divisibility = btc_chain.get('divisibility', 8)
+        try:
+            btc_amount = Decimal(str(invoice['Amount'])) / Decimal(str(rate))
+            quantizer = Decimal(1).scaleb(-int(divisibility))
+            values.append(format(btc_amount.quantize(quantizer, rounding=ROUND_CEILING), 'f'))
+        except (InvalidOperation, TypeError, ValueError, ZeroDivisionError):
+            self.logger.warning(f"Could not calculate BTC search amount for invoice {invoice.get('Id', 'unknown')}")
+
+        values.append(invoice['Id'])
+
+        created = invoice.get('Created')
+        if isinstance(created, datetime):
+            values.append(self._format_search_datetime(created))
+
+        amount = self._format_search_decimal(invoice.get('Amount'))
+        if amount:
+            values.append(amount)
+
+        order_id = blob2_json.get('metadata', {}).get('orderId')
+        if order_id is not None and str(order_id) != '':
+            values.append(str(order_id))
+
+        store_data_id = invoice.get('StoreDataId')
+        if store_data_id is not None and str(store_data_id) != '':
+            values.append(str(store_data_id))
+
+        return values
+
     def create_invoices_table_if_not_exists(self) -> bool:
-        """Create Invoices table if it doesn't exist.
+        """Create Invoices and InvoiceSearches tables if they don't exist.
         
         Returns:
             True if table exists or was created successfully, False otherwise
@@ -764,7 +841,7 @@ class InvoicesTablePopulator:
             conn = psycopg2.connect(**self.db_config)
             cursor = conn.cursor()
             
-            # Check if table exists
+            # Check if Invoices table exists
             cursor.execute("""
                 SELECT EXISTS (
                     SELECT FROM information_schema.tables 
@@ -777,7 +854,7 @@ class InvoicesTablePopulator:
             if not table_exists:
                 self.logger.info("Creating Invoices table...")
                 cursor.execute("""
-                    CREATE TABLE Invoices (
+                    CREATE TABLE "Invoices" (
                         "Id" text PRIMARY KEY,
                         "Blob" bytea,
                         "Created" timestamp with time zone,
@@ -794,6 +871,30 @@ class InvoicesTablePopulator:
                 self.logger.info("Invoices table created successfully")
             else:
                 self.logger.info("Invoices table already exists")
+
+            # Check if InvoiceSearches table exists
+            cursor.execute("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.tables 
+                    WHERE table_name = 'InvoiceSearches'
+                );
+            """)
+
+            searches_table_exists = cursor.fetchone()[0]
+
+            if not searches_table_exists:
+                self.logger.info("Creating InvoiceSearches table...")
+                cursor.execute("""
+                    CREATE TABLE "InvoiceSearches" (
+                        "Id" integer GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                        "InvoiceDataId" text,
+                        "Value" text
+                    );
+                """)
+                conn.commit()
+                self.logger.info("InvoiceSearches table created successfully")
+            else:
+                self.logger.info("InvoiceSearches table already exists")
             
             cursor.close()
             conn.close()
@@ -830,6 +931,18 @@ class InvoicesTablePopulator:
                             %(StoreDataId)s, %(Archived)s, %(Blob2)s, %(Amount)s, %(Currency)s
                         )
                     """, invoice)
+
+                    for search_value in self._build_invoice_search_values(invoice):
+                        cursor.execute("""
+                            INSERT INTO "InvoiceSearches" ( 
+                                "InvoiceDataId", "Value"
+                            ) VALUES (
+                                %(InvoiceDataId)s, %(Value)s
+                            )
+                        """, {
+                            'InvoiceDataId': invoice['Id'],
+                            'Value': search_value
+                        })
                     
                     # Write to CSV file after successful DB insert
                     self._write_invoice_to_csv(invoice)
