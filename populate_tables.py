@@ -821,9 +821,18 @@ class InvoicesTablePopulator:
         if amount:
             values.append(amount)
 
-        order_id = blob2_json.get('metadata', {}).get('orderId')
-        if order_id is not None and str(order_id) != '':
-            values.append(str(order_id))
+        metadata = blob2_json.get('metadata')
+        if isinstance(metadata, dict):
+            for meta_value in metadata.values():
+                if isinstance(meta_value, (dict, list)):
+                    continue
+                if meta_value is not None and str(meta_value) != '':
+                    values.append(str(meta_value))
+
+        for field in ('notificationURL', 'notificationEmail'):
+            field_value = blob2_json.get(field)
+            if field_value is not None and str(field_value) != '':
+                values.append(str(field_value))
 
         store_data_id = invoice.get('StoreDataId')
         if store_data_id is not None and str(store_data_id) != '':
