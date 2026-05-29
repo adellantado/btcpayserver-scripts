@@ -1178,71 +1178,64 @@ def validate_config(config: Dict) -> bool:
     return True
 
 
+def _merge_if_empty(args: argparse.Namespace, field: str, value) -> None:
+    """Set field from config when the argparse namespace defines it and it is unset."""
+    if not hasattr(args, field):
+        return
+    if not getattr(args, field):
+        setattr(args, field, value)
+
+
+def _merge_if_default(
+    args: argparse.Namespace, field: str, value, default
+) -> None:
+    """Set field from config when the argparse namespace defines it and still at default."""
+    if not hasattr(args, field):
+        return
+    if getattr(args, field) == default:
+        setattr(args, field, value)
+
+
+def _merge_store_id(args: argparse.Namespace, store_id: str) -> None:
+    """Apply store_id from config to store_id or --store, whichever the script defines."""
+    if hasattr(args, "store_id") and not getattr(args, "store_id", None):
+        args.store_id = store_id
+    if hasattr(args, "store") and not getattr(args, "store", None):
+        args.store = store_id
+
+
 def merge_config_with_args(config: Dict, args: argparse.Namespace) -> argparse.Namespace:
     """Merge configuration file values with command line arguments.
-    Supports both legacy config format and universal config format."""
-    
-    # Handle universal config format
-    if '_payments_population' in config:
-        # Universal config format
-        payments_config = config['_payments_population']
-        
-        if not args.host and 'host' in payments_config:
-            args.host = payments_config['host']
-        
-        if not args.database and 'database' in payments_config:
-            args.database = payments_config['database']
-        
-        if not args.user and 'user' in payments_config:
-            args.user = payments_config['user']
-        
-        if not args.password and 'password' in payments_config:
-            args.password = payments_config['password']
-        
-        if args.port == 5432 and 'port' in payments_config:
-            args.port = payments_config['port']
-        
-        if args.count == 1000 and 'count' in payments_config:
-            args.count = payments_config['count']
-        
-        if args.batch_size == 100 and 'batch_size' in payments_config:
-            args.batch_size = payments_config['batch_size']
-        
-        if args.output_dir == 'payment_results' and 'output_dir' in payments_config:
-            args.output_dir = payments_config['output_dir']
 
-        if not args.store_id and 'store_id' in payments_config:
-            args.store_id = payments_config['store_id']
-    else:
-        # Legacy config format
-        if not args.host and 'host' in config:
-            args.host = config['host']
-        
-        if not args.database and 'database' in config:
-            args.database = config['database']
-        
-        if not args.user and 'user' in config:
-            args.user = config['user']
-        
-        if not args.password and 'password' in config:
-            args.password = config['password']
-        
-        if args.port == 5432 and 'port' in config:
-            args.port = config['port']
-        
-        if args.count == 1000 and 'count' in config:
-            args.count = config['count']
-        
-        if args.batch_size == 100 and 'batch_size' in config:
-            args.batch_size = config['batch_size']
-        
-        if args.output_dir == 'payment_results' and 'output_dir' in config:
-            args.output_dir = config['output_dir']
-        
-        # Handle store_id in legacy config format
-        if not args.store_id and 'store_id' in config:
-            args.store_id = config['store_id']
-    
+    Only updates attributes that exist on ``args`` (from each script's parser),
+    so scripts sharing this helper are not required to define every field.
+    Supports both legacy config format and universal config format.
+    """
+    section = (
+        config["_payments_population"]
+        if "_payments_population" in config
+        else config
+    )
+
+    for field in ("host", "database", "user", "password"):
+        if field in section:
+            _merge_if_empty(args, field, section[field])
+
+    if "port" in section:
+        _merge_if_default(args, "port", section["port"], 5432)
+
+    if "count" in section:
+        _merge_if_default(args, "count", section["count"], 1000)
+
+    if "batch_size" in section:
+        _merge_if_default(args, "batch_size", section["batch_size"], 100)
+
+    if "output_dir" in section:
+        _merge_if_default(args, "output_dir", section["output_dir"], "payment_results")
+
+    if "store_id" in section:
+        _merge_store_id(args, section["store_id"])
+
     return args
 
 
